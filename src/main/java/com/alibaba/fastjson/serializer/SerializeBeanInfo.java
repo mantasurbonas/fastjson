@@ -22,7 +22,7 @@ public class SerializeBeanInfo {
                              int features,
                              FieldInfo[] fields, //
                              FieldInfo[] sortedFields
-                             ){
+                             ) {
         this.beanType = beanType;
         this.jsonType = jsonType;
         this.typeName = typeName;

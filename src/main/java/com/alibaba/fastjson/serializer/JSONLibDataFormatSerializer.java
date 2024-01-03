@@ -8,16 +8,16 @@ import com.alibaba.fastjson.JSONObject;
 
 public class JSONLibDataFormatSerializer implements ObjectSerializer {
 
-    public JSONLibDataFormatSerializer(){
+    public JSONLibDataFormatSerializer() {
     }
 
     @SuppressWarnings("deprecation")
     public void write(JSONSerializer serializer, Object object, Object fieldName, Type fieldType, int features) throws IOException {
-    	if (object == null) {
-    		serializer.out.writeNull();
-    		return;
-    	}
-    	
+        if (object == null) {
+            serializer.out.writeNull();
+            return;
+        }
+        
         Date date = (Date) object;
        
         JSONObject json = new JSONObject();

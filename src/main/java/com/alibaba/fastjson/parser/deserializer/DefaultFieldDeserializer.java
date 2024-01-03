@@ -20,9 +20,9 @@ import com.alibaba.fastjson.util.FieldInfo;
 public class DefaultFieldDeserializer extends FieldDeserializer {
 
     protected ObjectDeserializer fieldValueDeserilizer;
-    protected boolean            customDeserilizer     = false;
+    protected boolean            customDeserilizer = false;
 
-    public DefaultFieldDeserializer(ParserConfig config, Class<?> clazz, FieldInfo fieldInfo){
+    public DefaultFieldDeserializer(ParserConfig config, Class<?> clazz, FieldInfo fieldInfo) {
         super(clazz, fieldInfo);
         JSONField annotation = fieldInfo.getAnnotation();
         if (annotation != null) {
@@ -33,20 +33,24 @@ public class DefaultFieldDeserializer extends FieldDeserializer {
 
     public ObjectDeserializer getFieldValueDeserilizer(ParserConfig config) {
         if (fieldValueDeserilizer == null) {
-            JSONField annotation = fieldInfo.getAnnotation();
-            if (annotation != null && annotation.deserializeUsing() != Void.class) {
-                Class<?> deserializeUsing = annotation.deserializeUsing();
-                try {
-                    fieldValueDeserilizer = (ObjectDeserializer) deserializeUsing.newInstance();
-                } catch (Exception ex) {
-                    throw new JSONException("create deserializeUsing ObjectDeserializer error", ex);
-                }
-            } else {
-                fieldValueDeserilizer = config.getDeserializer(fieldInfo.fieldClass, fieldInfo.fieldType);
-            }
+            initializeDeserializer(config);
         }
 
         return fieldValueDeserilizer;
+    }
+
+    private void initializeDeserializer(ParserConfig config) {
+        JSONField annotation = fieldInfo.getAnnotation();
+        if (annotation != null && annotation.deserializeUsing() != Void.class) {
+            Class<?> deserializeUsing = annotation.deserializeUsing();
+            try {
+                fieldValueDeserilizer = (ObjectDeserializer) deserializeUsing.newInstance();
+            } catch (Exception ex) {
+                throw new JSONException("create deserializeUsing ObjectDeserializer error", ex);
+            }
+        } else {
+            fieldValueDeserilizer = config.getDeserializer(fieldInfo.fieldClass, fieldInfo.fieldType);
+        }
     }
 
     @Override
@@ -76,17 +80,7 @@ public class DefaultFieldDeserializer extends FieldDeserializer {
             JavaBeanDeserializer javaBeanDeser = (JavaBeanDeserializer) fieldValueDeserilizer;
             value = javaBeanDeser.deserialze(parser, fieldType, fieldInfo.name, fieldInfo.parserFeatures);
         } else {
-            if ((this.fieldInfo.format != null || this.fieldInfo.parserFeatures != 0)
-                    && fieldValueDeserilizer instanceof ContextObjectDeserializer) {
-                value = ((ContextObjectDeserializer) fieldValueDeserilizer) //
-                                        .deserialze(parser,
-                                                    fieldType,
-                                                    fieldInfo.name,
-                                                    fieldInfo.format,
-                                                    fieldInfo.parserFeatures);
-            } else {
-                value = fieldValueDeserilizer.deserialze(parser, fieldType, fieldInfo.name);
-            }
+            value = deserializeFieldValue(parser, fieldValueDeserilizer, fieldType);
         }
 
         if (value instanceof byte[]
@@ -97,16 +91,7 @@ public class DefaultFieldDeserializer extends FieldDeserializer {
                 gzipIn = new GZIPInputStream(new ByteArrayInputStream(bytes));
 
                 ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-                for (;;) {
-                    byte[] buf = new byte[1024];
-                    int len = gzipIn.read(buf);
-                    if (len == -1) {
-                        break;
-                    }
-                    if (len > 0) {
-                        byteOut.write(buf, 0, len);
-                    }
-                }
+                decompressGzipStream(gzipIn, byteOut);
                 value = byteOut.toByteArray();
 
             } catch (IOException ex) {
@@ -115,17 +100,54 @@ public class DefaultFieldDeserializer extends FieldDeserializer {
         }
 
         if (parser.getResolveStatus() == DefaultJSONParser.NeedToResolve) {
-            ResolveTask task = parser.getLastResolveTask();
-            task.fieldDeserializer = this;
-            task.ownerContext = parser.getContext();
-            parser.setResolveStatus(DefaultJSONParser.NONE);
+            setParserResolveTask(parser);
         } else {
-            if (object == null) {
-                fieldValues.put(fieldInfo.name, value);
-            } else {
-                setValue(object, value);
+            setFieldValue(object, fieldValues, value);
+        }
+    }
+
+    private void setFieldValue(Object object, Map<String, Object> fieldValues, Object value) {
+        if (object == null) {
+            fieldValues.put(fieldInfo.name, value);
+            return;
+        }
+        setValue(object, value);
+    }
+
+    private void setParserResolveTask(DefaultJSONParser parser) {
+        ResolveTask task = parser.getLastResolveTask();
+        task.fieldDeserializer = this;
+        task.ownerContext = parser.getContext();
+        parser.setResolveStatus(DefaultJSONParser.NONE);
+    }
+
+    private void decompressGzipStream(GZIPInputStream gzipIn, ByteArrayOutputStream byteOut) throws IOException {
+        for (;;) {
+            byte[] buf = new byte[1024];
+            int len = gzipIn.read(buf);
+            if (len == -1) {
+                break;
+            }
+            if (len > 0) {
+                byteOut.write(buf, 0, len);
             }
         }
+    }
+
+    private Object deserializeFieldValue(DefaultJSONParser parser, ObjectDeserializer fieldValueDeserilizer, Type fieldType) {
+        Object value;
+        if ((this.fieldInfo.format != null || this.fieldInfo.parserFeatures != 0)
+                && fieldValueDeserilizer instanceof ContextObjectDeserializer) {
+            value = ((ContextObjectDeserializer) fieldValueDeserilizer) //
+		                            .deserialze(parser,
+                                                fieldType,
+                                                fieldInfo.name,
+                                                fieldInfo.format,
+                                                fieldInfo.parserFeatures);
+        } else {
+            value = fieldValueDeserilizer.deserialze(parser, fieldType, fieldInfo.name);
+        }
+        return value;
     }
 
     public int getFastMatchToken() {

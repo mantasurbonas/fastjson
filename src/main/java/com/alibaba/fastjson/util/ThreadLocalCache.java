@@ -9,12 +9,12 @@ import java.nio.charset.CharsetDecoder;
 public class ThreadLocalCache {
 
     public final static int                                 CHARS_CACH_INIT_SIZE = 1024;                                    // 1k, 2^10;
-    public final static int 								CHARS_CACH_INIT_SIZE_EXP = 10;
-    public final static int                                 CHARS_CACH_MAX_SIZE  = 1024 * 128;                              // 128k, 2^17;
-    public final static int 								CHARS_CACH_MAX_SIZE_EXP = 17;
-    private final static ThreadLocal<SoftReference<char[]>> charsBufLocal        = new ThreadLocal<SoftReference<char[]>>();
+    public final static int                                 CHARS_CACH_INIT_SIZE_EXP = 10;
+    public final static int                                 CHARS_CACH_MAX_SIZE = 1024 * 128;                              // 128k, 2^17;
+    public final static int                                 CHARS_CACH_MAX_SIZE_EXP = 17;
+    private final static ThreadLocal<SoftReference<char[]>> charsBufLocal = new ThreadLocal<SoftReference<char[]>>();
 
-    private final static ThreadLocal<CharsetDecoder>        decoderLocal         = new ThreadLocal<CharsetDecoder>();
+    private final static ThreadLocal<CharsetDecoder>        decoderLocal = new ThreadLocal<CharsetDecoder>();
 
     public static CharsetDecoder getUTF8Decoder() {
         CharsetDecoder decoder = decoderLocal.get();
@@ -50,7 +50,7 @@ public class ThreadLocalCache {
     }
 
     private static char[] allocate(int length) {
-        if(length> CHARS_CACH_MAX_SIZE) {
+        if (length > CHARS_CACH_MAX_SIZE) {
             return new char[length];
         }
 
@@ -61,24 +61,24 @@ public class ThreadLocalCache {
     }
 
     private static int getAllocateLengthExp(int minExp, int maxExp, int length) {
-        assert (1<<maxExp) >= length;
+        assert (1 << maxExp) >= length;
 //		int max = 1 << maxExp;
 //		if(length>= max) {
 //			return length;
 //		}
         int part = length >>> minExp;
-        if(part <= 0) {
-            return 1<< minExp;
+        if (part <= 0) {
+            return 1 << minExp;
         }
-        return 1 << 32 - Integer.numberOfLeadingZeros(length-1);
+        return 1 << 32 - Integer.numberOfLeadingZeros(length - 1);
     }
 
     // /////////
     public final static int                                 BYTES_CACH_INIT_SIZE = 1024;                                    // 1k, 2^10;
-    public final static int 								BYTES_CACH_INIT_SIZE_EXP = 10;
-    public final static int                                 BYTES_CACH_MAX_SIZE  = 1024 * 128;                              // 128k, 2^17;
-    public final static int 								BYTES_CACH_MAX_SIZE_EXP = 17;
-    private final static ThreadLocal<SoftReference<byte[]>> bytesBufLocal        = new ThreadLocal<SoftReference<byte[]>>();
+    public final static int                                 BYTES_CACH_INIT_SIZE_EXP = 10;
+    public final static int                                 BYTES_CACH_MAX_SIZE = 1024 * 128;                              // 128k, 2^17;
+    public final static int                                 BYTES_CACH_MAX_SIZE_EXP = 17;
+    private final static ThreadLocal<SoftReference<byte[]>> bytesBufLocal = new ThreadLocal<SoftReference<byte[]>>();
 
     public static void clearBytes() {
         bytesBufLocal.set(null);
@@ -105,7 +105,7 @@ public class ThreadLocalCache {
     }
 
     private static byte[] allocateBytes(int length) {
-        if(length > BYTES_CACH_MAX_SIZE) {
+        if (length > BYTES_CACH_MAX_SIZE) {
             return new byte[length];
         }
 

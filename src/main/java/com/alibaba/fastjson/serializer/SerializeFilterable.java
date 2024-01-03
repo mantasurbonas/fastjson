@@ -8,16 +8,16 @@ import com.alibaba.fastjson.JSON;
 
 public abstract class SerializeFilterable {
 
-    protected List<BeforeFilter>       beforeFilters       = null;
-    protected List<AfterFilter>        afterFilters        = null;
-    protected List<PropertyFilter>     propertyFilters     = null;
-    protected List<ValueFilter>        valueFilters        = null;
-    protected List<NameFilter>         nameFilters         = null;
-    protected List<PropertyPreFilter>  propertyPreFilters  = null;
-    protected List<LabelFilter>        labelFilters        = null;
+    protected List<BeforeFilter>       beforeFilters = null;
+    protected List<AfterFilter>        afterFilters = null;
+    protected List<PropertyFilter>     propertyFilters = null;
+    protected List<ValueFilter>        valueFilters = null;
+    protected List<NameFilter>         nameFilters = null;
+    protected List<PropertyPreFilter>  propertyPreFilters = null;
+    protected List<LabelFilter>        labelFilters = null;
     protected List<ContextValueFilter> contextValueFilters = null;
 
-    protected boolean                  writeDirect         = true;
+    protected boolean                  writeDirect = true;
 
     public List<BeforeFilter> getBeforeFilters() {
         if (beforeFilters == null) {
@@ -180,17 +180,27 @@ public abstract class SerializeFilterable {
                              Object propertyValue) {
 
         if (jsonBeanDeser.nameFilters != null) {
-            for (NameFilter nameFilter : jsonBeanDeser.nameFilters) {
-                key = nameFilter.process(object, key, propertyValue);
-            }
+            key = processNameFilters(jsonBeanDeser, object, key, propertyValue);
         }
         
         if (this.nameFilters != null) {
-            for (NameFilter nameFilter : this.nameFilters) {
-                key = nameFilter.process(object, key, propertyValue);
-            }
+            key = processKeyWithFilters(object, key, propertyValue);
         }
 
+        return key;
+    }
+
+    private String processKeyWithFilters(Object object, String key, Object propertyValue) {
+        for (NameFilter nameFilter : this.nameFilters) {
+            key = nameFilter.process(object, key, propertyValue);
+        }
+        return key;
+    }
+
+    private String processNameFilters(JSONSerializer jsonBeanDeser, Object object, String key, Object propertyValue) {
+        for (NameFilter nameFilter : jsonBeanDeser.nameFilters) {
+            key = nameFilter.process(object, key, propertyValue);
+        }
         return key;
     }
 
@@ -210,51 +220,83 @@ public abstract class SerializeFilterable {
                                int features) {
 
         if (propertyValue != null) {
-            if ((SerializerFeature.isEnabled(jsonBeanDeser.out.features, features, SerializerFeature.WriteNonStringValueAsString)  //
-                    || (beanContext != null && (beanContext.getFeatures() & SerializerFeature.WriteNonStringValueAsString.mask) != 0))
-                    && (propertyValue instanceof Number || propertyValue instanceof Boolean)) {
-                String format = null;
-                if (propertyValue instanceof Number
-                        && beanContext != null) {
-                    format = beanContext.getFormat();
-                }
-
-                if (format != null) {
-                    propertyValue = new DecimalFormat(format).format(propertyValue);
-                } else {
-                    propertyValue = propertyValue.toString();
-                }
-            } else if (beanContext != null && beanContext.isJsonDirect()) {
-                String jsonStr = (String) propertyValue;
-                propertyValue = JSON.parse(jsonStr);
-            }
+            propertyValue = processPropertyValue_(jsonBeanDeser, beanContext, propertyValue, features);
         }
         
         if (jsonBeanDeser.valueFilters != null) {
-            for (ValueFilter valueFilter : jsonBeanDeser.valueFilters) {
-                propertyValue = valueFilter.process(object, key, propertyValue);
-            }
+            propertyValue = processValueFilters(jsonBeanDeser, object, key, propertyValue);
         }
 
         List<ValueFilter> valueFilters = this.valueFilters;
         if (valueFilters != null) {
-            for (ValueFilter valueFilter : valueFilters) {
-                propertyValue = valueFilter.process(object, key, propertyValue);
-            }
+            propertyValue = processPropertyValueWithFilters(object, key, propertyValue, valueFilters);
         }
 
         if (jsonBeanDeser.contextValueFilters != null) {
-            for (ContextValueFilter valueFilter : jsonBeanDeser.contextValueFilters) {
-                propertyValue = valueFilter.process(beanContext, object, key, propertyValue);
-            }
+            propertyValue = processContextValueFilters(jsonBeanDeser, beanContext, object, key, propertyValue);
         }
 
         if (this.contextValueFilters != null) {
-            for (ContextValueFilter valueFilter : this.contextValueFilters) {
-                propertyValue = valueFilter.process(beanContext, object, key, propertyValue);
-            }
+            propertyValue = processPropertyValue(beanContext, object, key, propertyValue);
         }
 
+        return propertyValue;
+    }
+
+    private Object processPropertyValue_(JSONSerializer jsonBeanDeser, BeanContext beanContext, Object propertyValue,
+            int features) {
+        if ((SerializerFeature.isEnabled(jsonBeanDeser.out.features, features, SerializerFeature.WriteNonStringValueAsString)  //
+		        || (beanContext != null && (beanContext.getFeatures() & SerializerFeature.WriteNonStringValueAsString.mask) != 0))
+                && (propertyValue instanceof Number || propertyValue instanceof Boolean)) {
+            propertyValue = formatPropertyValue(beanContext, propertyValue);
+        } else if (beanContext != null && beanContext.isJsonDirect()) {
+            String jsonStr = (String) propertyValue;
+            propertyValue = JSON.parse(jsonStr);
+        }
+        return propertyValue;
+    }
+
+    private Object processPropertyValue(BeanContext beanContext, Object object, String key, Object propertyValue) {
+        for (ContextValueFilter valueFilter : this.contextValueFilters) {
+            propertyValue = valueFilter.process(beanContext, object, key, propertyValue);
+        }
+        return propertyValue;
+    }
+
+    private Object processContextValueFilters(JSONSerializer jsonBeanDeser, BeanContext beanContext, Object object, String key,
+            Object propertyValue) {
+        for (ContextValueFilter valueFilter : jsonBeanDeser.contextValueFilters) {
+            propertyValue = valueFilter.process(beanContext, object, key, propertyValue);
+        }
+        return propertyValue;
+    }
+
+    private Object processPropertyValueWithFilters(Object object, String key, Object propertyValue, List<ValueFilter> valueFilters) {
+        for (ValueFilter valueFilter : valueFilters) {
+            propertyValue = valueFilter.process(object, key, propertyValue);
+        }
+        return propertyValue;
+    }
+
+    private Object processValueFilters(JSONSerializer jsonBeanDeser, Object object, String key, Object propertyValue) {
+        for (ValueFilter valueFilter : jsonBeanDeser.valueFilters) {
+            propertyValue = valueFilter.process(object, key, propertyValue);
+        }
+        return propertyValue;
+    }
+
+    private Object formatPropertyValue(BeanContext beanContext, Object propertyValue) {
+        String format = null;
+        if (propertyValue instanceof Number
+                && beanContext != null) {
+            format = beanContext.getFormat();
+        }
+
+        if (format != null) {
+            propertyValue = new DecimalFormat(format).format(propertyValue);
+        } else {
+            propertyValue = propertyValue.toString();
+        }
         return propertyValue;
     }
     

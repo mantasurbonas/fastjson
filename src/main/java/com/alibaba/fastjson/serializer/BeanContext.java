@@ -17,7 +17,7 @@ public final class BeanContext {
     private final FieldInfo fieldInfo;
     private final String format;
 
-    public BeanContext(Class<?> beanClass, FieldInfo fieldInfo){
+    public BeanContext(Class<?> beanClass, FieldInfo fieldInfo) {
         this.beanClass = beanClass;
         this.fieldInfo = fieldInfo;
         this.format = fieldInfo.getFormat();

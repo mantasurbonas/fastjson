@@ -26,76 +26,80 @@ public class AnnotationSerializer implements ObjectSerializer {
         Class objClass = object.getClass();
         Class[] interfaces = objClass.getInterfaces();
         if (interfaces.length == 1 && interfaces[0].isAnnotation()) {
-            Class annotationClass = interfaces[0];
-
-            if (sun_AnnotationType == null && !sun_AnnotationType_error) {
-                try {
-                    sun_AnnotationType = Class.forName("sun.reflect.annotation.AnnotationType");
-                } catch (Throwable ex) {
-                    sun_AnnotationType_error = true;
-                    throw new JSONException("not support Type Annotation.", ex);
-                }
-            }
-
-            if (sun_AnnotationType == null) {
-                throw new JSONException("not support Type Annotation.");
-            }
-
-            if (sun_AnnotationType_getInstance == null && !sun_AnnotationType_error) {
-                try {
-                    sun_AnnotationType_getInstance = sun_AnnotationType.getMethod("getInstance", Class.class);
-                } catch (Throwable ex) {
-                    sun_AnnotationType_error = true;
-                    throw new JSONException("not support Type Annotation.", ex);
-                }
-            }
-
-            if (sun_AnnotationType_members == null && !sun_AnnotationType_error) {
-                try {
-                    sun_AnnotationType_members = sun_AnnotationType.getMethod("members");
-                } catch (Throwable ex) {
-                    sun_AnnotationType_error = true;
-                    throw new JSONException("not support Type Annotation.", ex);
-                }
-            }
-
-            if (sun_AnnotationType_getInstance == null || sun_AnnotationType_error) {
-                throw new JSONException("not support Type Annotation.");
-            }
-
-            Object type;
-            try {
-                type = sun_AnnotationType_getInstance.invoke(null, annotationClass);
-            } catch (Throwable ex) {
-                sun_AnnotationType_error = true;
-                throw new JSONException("not support Type Annotation.", ex);
-            }
-
-            Map<String, Method> members;
-            try {
-                members = (Map<String, Method>) sun_AnnotationType_members.invoke(type);
-            } catch (Throwable ex) {
-                sun_AnnotationType_error = true;
-                throw new JSONException("not support Type Annotation.", ex);
-            }
-
-            JSONObject json = new JSONObject(members.size());
-            Iterator<Map.Entry<String, Method>> iterator = members.entrySet().iterator();
-            Map.Entry<String, Method> entry;
-            Object val = null;
-            while (iterator.hasNext()) {
-                entry = iterator.next();
-                try {
-                    val = entry.getValue().invoke(object);
-                } catch (IllegalAccessException e) {
-                    // skip
-                } catch (InvocationTargetException e) {
-                    // skip
-                }
-                json.put(entry.getKey(), JSON.toJSON(val));
-            }
-            serializer.write(json);
+            serializeAnnotation(serializer, object, interfaces);
             return;
         }
+    }
+
+    private void serializeAnnotation(JSONSerializer serializer, Object object, Class[] interfaces) {
+        Class annotationClass = interfaces[0];
+
+        if (sun_AnnotationType == null && !sun_AnnotationType_error) {
+            try {
+                sun_AnnotationType = Class.forName("sun.reflect.annotation.AnnotationType");
+            } catch (Throwable ex) {
+                sun_AnnotationType_error = true;
+                throw new JSONException("not support Type Annotation.", ex);
+            }
+        }
+
+        if (sun_AnnotationType == null) {
+            throw new JSONException("not support Type Annotation.");
+        }
+
+        if (sun_AnnotationType_getInstance == null && !sun_AnnotationType_error) {
+            try {
+                sun_AnnotationType_getInstance = sun_AnnotationType.getMethod("getInstance", Class.class);
+            } catch (Throwable ex) {
+                sun_AnnotationType_error = true;
+                throw new JSONException("not support Type Annotation.", ex);
+            }
+        }
+
+        if (sun_AnnotationType_members == null && !sun_AnnotationType_error) {
+            try {
+                sun_AnnotationType_members = sun_AnnotationType.getMethod("members");
+            } catch (Throwable ex) {
+                sun_AnnotationType_error = true;
+                throw new JSONException("not support Type Annotation.", ex);
+            }
+        }
+
+        if (sun_AnnotationType_getInstance == null || sun_AnnotationType_error) {
+            throw new JSONException("not support Type Annotation.");
+        }
+
+        Object type;
+        try {
+            type = sun_AnnotationType_getInstance.invoke(null, annotationClass);
+        } catch (Throwable ex) {
+            sun_AnnotationType_error = true;
+            throw new JSONException("not support Type Annotation.", ex);
+        }
+
+        Map<String, Method> members;
+        try {
+            members = (Map<String, Method>) sun_AnnotationType_members.invoke(type);
+        } catch (Throwable ex) {
+            sun_AnnotationType_error = true;
+            throw new JSONException("not support Type Annotation.", ex);
+        }
+
+        JSONObject json = new JSONObject(members.size());
+        Iterator<Map.Entry<String, Method>> iterator = members.entrySet().iterator();
+        Map.Entry<String, Method> entry;
+        Object val = null;
+        while (iterator.hasNext()) {
+            entry = iterator.next();
+            try {
+                val = entry.getValue().invoke(object);
+            } catch (IllegalAccessException e) {
+                // skip
+		    } catch (InvocationTargetException e) {
+                // skip
+		    }
+            json.put(entry.getKey(), JSON.toJSON(val));
+        }
+        serializer.write(json);
     }
 }

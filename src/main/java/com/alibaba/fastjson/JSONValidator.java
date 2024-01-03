@@ -72,16 +72,15 @@ public abstract class JSONValidator implements Cloneable, Closeable {
                 return true;
             }
 
-            if (supportMultiValue) {
-                skipWhiteSpace();
-                if (eof) {
-                    break;
-                }
-                continue;
-            } else {
+            if (!supportMultiValue) {
                 validateResult = false;
                 return false;
             }
+            skipWhiteSpace();
+            if (eof) {
+                break;
+            }
+            continue;
         }
 
         validateResult = true;
@@ -108,18 +107,14 @@ public abstract class JSONValidator implements Cloneable, Closeable {
                 }
 
                 for (;;) {
-                    if (ch == '"') {
-                        fieldName();
-                    } else {
+                    if (ch != '"')
                         return false;
-                    }
+                    fieldName();
 
                     skipWhiteSpace();
-                    if (ch == ':') {
-                        next();
-                    } else {
+                    if (ch != ':')
                         return false;
-                    }
+                    next();
                     skipWhiteSpace();
 
                     if (!any()) {
@@ -128,16 +123,16 @@ public abstract class JSONValidator implements Cloneable, Closeable {
 
                     // kv 结束时，只能是 "," 或 "}"
                     skipWhiteSpace();
-                    if (ch == ',') {
-                        next();
-                        skipWhiteSpace();
-                    } else if (ch == '}') {
-                        next();
-                        type = Type.Object;
-                        return true;
-                    } else {
+                    if (ch != ','){
+                        if (ch == '}') {
+                            next();
+                            type = Type.Object;
+                            return true;
+                        }
                         return false;
                     }
+                    next();
+                    skipWhiteSpace();
                 }
             case '[':
                 next();
@@ -155,17 +150,16 @@ public abstract class JSONValidator implements Cloneable, Closeable {
                     }
 
                     skipWhiteSpace();
-                    if (ch == ',') {
-                        next();
-                        skipWhiteSpace();
-                    } else if (ch == ']') {
-                        next();
-                        type = Type.Array;
-                        return true;
-                    }
-                    else {
+                    if (ch != ','){
+                        if (ch == ']') {
+                            next();
+                            type = Type.Array;
+                            return true;
+                        }
                         return false;
                     }
+                    next();
+                    skipWhiteSpace();
                 }
             case '0':
             case '1':
@@ -208,12 +202,9 @@ public abstract class JSONValidator implements Cloneable, Closeable {
                         next();
                     }
 
-                    if (ch >= '0' && ch <= '9') {
-                        next();
-                    }
-                    else {
+                    if (!(ch >= '0' && ch <= '9'))
                         return false;
-                    }
+                    next();
 
                     while (ch >= '0' && ch <= '9') {
                         next();
@@ -238,14 +229,17 @@ public abstract class JSONValidator implements Cloneable, Closeable {
                             next();
                             next();
                             next();
-                        } else {
+                        }
+                        else {
                             next();
                         }
-                    } else if (ch == '"') {
-                        next();
-                        type = Type.Value;
-                        return true;
-                    } else {
+                    }
+                    else{
+                        if (ch == '"') {
+                            next();
+                            type = Type.Value;
+                            return true;
+                        }
                         next();
                     }
                 }
@@ -332,7 +326,7 @@ public abstract class JSONValidator implements Cloneable, Closeable {
     protected void fieldName()
     {
         next();
-        for (; ; ) {
+        for (;;) {
             if (ch == '\\') {
                 next();
 
@@ -346,12 +340,10 @@ public abstract class JSONValidator implements Cloneable, Closeable {
                 } else {
                     next();
                 }
-            }
-            else if (ch == '"') {
+            } else if (ch == '"') {
                 next();
                 break;
-            }
-            else {
+            } else {
                 next();
             }
         }
@@ -360,7 +352,7 @@ public abstract class JSONValidator implements Cloneable, Closeable {
     protected boolean string()
     {
         next();
-        for (; !eof; ) {
+        for (;!eof;) {
             if (ch == '\\') {
                 next();
 
@@ -371,15 +363,16 @@ public abstract class JSONValidator implements Cloneable, Closeable {
                     next();
                     next();
                     next();
-                } else {
+                }
+                else {
                     next();
                 }
             }
-            else if (ch == '"') {
-                next();
-                return true;
-            }
-            else {
+            else{
+                if (ch == '"') {
+                    next();
+                    return true;
+                }
                 next();
             }
         }
@@ -448,37 +441,42 @@ public abstract class JSONValidator implements Cloneable, Closeable {
         void next() {
             if (pos < end) {
                 ch = (char) buf[++pos];
-            } else {
-                if (!eof) {
-                    int len;
-                    try {
-                        len = is.read(buf, 0, buf.length);
-                        readCount++;
-                    } catch (IOException ex) {
-                        throw new JSONException("read error");
-                    }
-
-                    if (len > 0) {
-                        ch = (char) buf[0];
-                        pos = 0;
-                        end = len - 1;
-                    }
-                    else if (len == -1) {
-                        pos = 0;
-                        end = 0;
-                        buf = null;
-                        ch = '\0';
-                        eof = true;
-                    } else {
-                        pos = 0;
-                        end = 0;
-                        buf = null;
-                        ch = '\0';
-                        eof = true;
-                        throw new JSONException("read error");
-                    }
-                }
+                return;
             }
+            if (!eof) {
+                readBuffer();
+            }
+        }
+
+        private void readBuffer() {
+            int len;
+            try {
+                len = is.read(buf, 0, buf.length);
+                readCount++;
+            } catch (IOException ex) {
+                throw new JSONException("read error");
+            }
+
+            if (len > 0) {
+                ch = (char) buf[0];
+                pos = 0;
+                end = len - 1;
+            }
+            else{
+                if (len != -1) {
+                    resetParameters();
+                    throw new JSONException("read error");
+                }
+                resetParameters();
+            }
+        }
+
+        private void resetParameters() {
+            pos = 0;
+            end = 0;
+            buf = null;
+            ch = '\0';
+            eof = true;
         }
 
         public void close() throws IOException {
@@ -509,7 +507,7 @@ public abstract class JSONValidator implements Cloneable, Closeable {
 
         protected final void fieldName()
         {
-            for (int i = pos + 1; i < str.length(); ++i) {
+            for (int i = pos + 1;i < str.length();++i) {
                 char ch = str.charAt(i);
                 if (ch == '\\') {
                     break;
@@ -522,31 +520,41 @@ public abstract class JSONValidator implements Cloneable, Closeable {
             }
 
             next();
-            for (; ; ) {
+            parseEscapedCharacters();
+        }
+
+        private void parseEscapedCharacters() {
+            for (;;) {
                 if (ch == '\\') {
-                    next();
-
-                    if (ch == 'u') {
-                        next();
-
-                        next();
-                        next();
-                        next();
-                        next();
-                    } else {
-                        next();
-                    }
-                }
-                else if (ch == '"') {
+                    handleNextCharacter();
+                } else if (ch == '"') {
                     next();
                     break;
-                }
-                else if(eof){
+                } else if (eof) {
                     break;
-                }else {
+                } else {
                     next();
                 }
             }
+        }
+
+        private void handleNextCharacter() {
+            next();
+
+            if (ch == 'u') {
+                skipFive();
+            } else {
+                next();
+            }
+        }
+
+        private void skipFive() {
+            next();
+
+            next();
+            next();
+            next();
+            next();
         }
 
     }
@@ -576,37 +584,42 @@ public abstract class JSONValidator implements Cloneable, Closeable {
         void next() {
             if (pos < end) {
                 ch = buf[++pos];
-            } else {
-                if (!eof) {
-                    int len;
-                    try {
-                        len = r.read(buf, 0, buf.length);
-                        readCount++;
-                    } catch (IOException ex) {
-                        throw new JSONException("read error");
-                    }
-
-                    if (len > 0) {
-                        ch = buf[0];
-                        pos = 0;
-                        end = len - 1;
-                    }
-                    else if (len == -1) {
-                        pos = 0;
-                        end = 0;
-                        buf = null;
-                        ch = '\0';
-                        eof = true;
-                    } else {
-                        pos = 0;
-                        end = 0;
-                        buf = null;
-                        ch = '\0';
-                        eof = true;
-                        throw new JSONException("read error");
-                    }
-                }
+                return;
             }
+            if (!eof) {
+                readAndUpdateState();
+            }
+        }
+
+        private void readAndUpdateState() {
+            int len;
+            try {
+                len = r.read(buf, 0, buf.length);
+                readCount++;
+            } catch (IOException ex) {
+                throw new JSONException("read error");
+            }
+
+            if (len > 0) {
+                ch = buf[0];
+                pos = 0;
+                end = len - 1;
+            }
+            else{
+                if (len != -1) {
+                    resetState();
+                    throw new JSONException("read error");
+                }
+                resetState();
+            }
+        }
+
+        private void resetState() {
+            pos = 0;
+            end = 0;
+            buf = null;
+            ch = '\0';
+            eof = true;
         }
 
         public void close() throws IOException {

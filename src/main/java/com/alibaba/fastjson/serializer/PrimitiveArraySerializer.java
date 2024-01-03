@@ -34,93 +34,32 @@ public class PrimitiveArraySerializer implements ObjectSerializer {
         }
         
         if (object instanceof int[]) {
-            int[] array = (int[]) object;
-            out.write('[');
-            for (int i = 0; i < array.length; ++i) {
-                if (i != 0) {
-                    out.write(',');
-                }
-                out.writeInt(array[i]);
-            }
-            out.write(']');
+            writeIntArray(object, out);
             return;
         }
         
         if (object instanceof short[]) {
-            short[] array = (short[]) object;
-            out.write('[');
-            for (int i = 0; i < array.length; ++i) {
-                if (i != 0) {
-                    out.write(',');
-                }
-                out.writeInt(array[i]);
-            }
-            out.write(']');
+            writeShortArray(object, out);
             return;
         }
         
         if (object instanceof long[]) {
-            long[] array = (long[]) object;
-
-            out.write('[');
-            for (int i = 0; i < array.length; ++i) {
-                if (i != 0) {
-                    out.write(',');
-                }
-                out.writeLong(array[i]);
-            }
-            out.write(']');
+            writeLongArray(object, out);
             return;
         }
         
         if (object instanceof boolean[]) {
-            boolean[] array = (boolean[]) object;
-            out.write('[');
-            for (int i = 0; i < array.length; ++i) {
-                if (i != 0) {
-                    out.write(',');
-                }
-                out.write(array[i]);
-            }
-            out.write(']');
+            writeBooleanArray(object, out);
             return;
         }
         
         if (object instanceof float[]) {
-            float[] array = (float[]) object;
-            out.write('[');
-            for (int i = 0; i < array.length; ++i) {
-                if (i != 0) {
-                    out.write(',');
-                }
-                
-                float item = array[i];
-                if (Float.isNaN(item)) {
-                    out.writeNull();
-                } else {
-                    out.append(Float.toString(item));
-                }
-            }
-            out.write(']');
+            writeFloatArray(object, out);
             return;
         }
         
         if (object instanceof double[]) {
-            double[] array = (double[]) object;
-            out.write('[');
-            for (int i = 0; i < array.length; ++i) {
-                if (i != 0) {
-                    out.write(',');
-                }
-                
-                double item = array[i];
-                if (Double.isNaN(item)) {
-                    out.writeNull();
-                } else {
-                    out.append(Double.toString(item));
-                }
-            }
-            out.write(']');
+            writeDoubleArray(object, out);
             return;
         }
         
@@ -132,5 +71,92 @@ public class PrimitiveArraySerializer implements ObjectSerializer {
         
         char[] chars = (char[]) object;
         out.writeString(chars);
+    }
+
+    private void writeDoubleArray(Object object, SerializeWriter out) {
+        double[] array = (double[]) object;
+        out.write('[');
+        for (int i = 0;i < array.length;++i) {
+            writeDoubleArrayElement(out, array, i);
+        }
+        out.write(']');
+    }
+
+    private void writeFloatArray(Object object, SerializeWriter out) {
+        float[] array = (float[]) object;
+        out.write('[');
+        for (int i = 0;i < array.length;++i) {
+            writeFloatArrayElement(out, array, i);
+        }
+        out.write(']');
+    }
+
+    private void writeDoubleArrayElement(SerializeWriter out, double[] array, int i) {
+        writeComma(out, i);
+        
+        double item = array[i];
+        if (Double.isNaN(item)) {
+            out.writeNull();
+        } else {
+            out.append(Double.toString(item));
+        }
+    }
+
+    private void writeFloatArrayElement(SerializeWriter out, float[] array, int i) {
+        writeComma(out, i);
+        
+        float item = array[i];
+        if (Float.isNaN(item)) {
+            out.writeNull();
+        } else {
+            out.append(Float.toString(item));
+        }
+    }
+
+    private void writeBooleanArray(Object object, SerializeWriter out) {
+        boolean[] array = (boolean[]) object;
+        out.write('[');
+        for (int i = 0;i < array.length;++i) {
+            writeComma(out, i);
+            out.write(array[i]);
+        }
+        out.write(']');
+    }
+
+    private void writeLongArray(Object object, SerializeWriter out) {
+        long[] array = (long[]) object;
+
+        out.write('[');
+        for (int i = 0;i < array.length;++i) {
+            writeComma(out, i);
+            out.writeLong(array[i]);
+        }
+        out.write(']');
+    }
+
+    private void writeShortArray(Object object, SerializeWriter out) {
+        short[] array = (short[]) object;
+        out.write('[');
+        for (int i = 0;i < array.length;++i) {
+            writeComma(out, i);
+            out.writeInt(array[i]);
+        }
+        out.write(']');
+    }
+
+    private void writeIntArray(Object object, SerializeWriter out) {
+        int[] array = (int[]) object;
+        out.write('[');
+        for (int i = 0;i < array.length;++i) {
+            writeComma(out, i);
+            out.writeInt(array[i]);
+        }
+        out.write(']');
+    }
+
+    private void writeComma(SerializeWriter out, int i) {
+        if (i != 0) {
+            out.write(',');
+        }
     }
 }

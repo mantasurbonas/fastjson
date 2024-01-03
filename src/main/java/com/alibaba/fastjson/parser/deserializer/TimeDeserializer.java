@@ -19,26 +19,7 @@ public class TimeDeserializer implements ObjectDeserializer {
         JSONLexer lexer = parser.lexer;
         
         if (lexer.token() == JSONToken.COMMA) {
-            lexer.nextToken(JSONToken.LITERAL_STRING);
-            
-            if (lexer.token() != JSONToken.LITERAL_STRING) {
-                throw new JSONException("syntax error");
-            }
-            
-            lexer.nextTokenWithColon(JSONToken.LITERAL_INT);
-            
-            if (lexer.token() != JSONToken.LITERAL_INT) {
-                throw new JSONException("syntax error");
-            }
-            
-            long time = lexer.longValue();
-            lexer.nextToken(JSONToken.RBRACE);
-            if (lexer.token() != JSONToken.RBRACE) {
-                throw new JSONException("syntax error");
-            }
-            lexer.nextToken(JSONToken.COMMA);
-            
-            return (T) new java.sql.Time(time);
+            return parseJsonToSqlTime(lexer);
         }
         
         Object val = parser.parse();
@@ -47,43 +28,90 @@ public class TimeDeserializer implements ObjectDeserializer {
             return null;
         }
 
-        if (val instanceof java.sql.Time) {
+        if (val instanceof java.sql.Time)
             return (T) val;
-        } else if (val instanceof BigDecimal) {
+        if (val instanceof BigDecimal)
             return (T) new java.sql.Time(TypeUtils.longValue((BigDecimal) val));
-        } else if (val instanceof Number) {
+        if (val instanceof Number)
             return (T) new java.sql.Time(((Number) val).longValue());
-        } else if (val instanceof String) {
-            String strVal = (String) val;
-            if (strVal.length() == 0) {
-                return null;
-            }
-            
-            long longVal;
-            JSONScanner dateLexer = new JSONScanner(strVal);
-            if (dateLexer.scanISO8601DateIfMatch()) {
-                longVal = dateLexer.getCalendar().getTimeInMillis();
-            } else {
-                boolean isDigit = true;
-                for (int i = 0; i< strVal.length(); ++i) {
-                    char ch = strVal.charAt(i);
-                    if (ch < '0' || ch > '9') {
-                        isDigit = false;
-                        break;
-                    }
-                }
-                if (!isDigit) {
-                    dateLexer.close();
-                    return (T) java.sql.Time.valueOf(strVal);    
-                }
-                
-                longVal = Long.parseLong(strVal);
-            }
-            dateLexer.close();
-            return (T) new java.sql.Time(longVal);
+        if (val instanceof String) {
+            return convertToSqlTime(val);
         }
         
         throw new JSONException("parse error");
+    }
+
+    private <T> T convertToSqlTime(Object val) {
+        String strVal = (String) val;
+        if (strVal.length() == 0) {
+            return null;
+        }
+        
+        long longVal;
+        JSONScanner dateLexer = new JSONScanner(strVal);
+        if (dateLexer.scanISO8601DateIfMatch()) {
+            longVal = dateLexer.getCalendar().getTimeInMillis();
+        } else {
+            boolean isDigit = true;
+            isDigit = isNumericString(strVal, isDigit);
+            if (!isDigit) {
+                dateLexer.close();
+                return (T) java.sql.Time.valueOf(strVal);    
+            }
+            
+            longVal = Long.parseLong(strVal);
+        }
+        dateLexer.close();
+        return (T) new java.sql.Time(longVal);
+    }
+
+    private <T> boolean isNumericString(String strVal, boolean isDigit) {
+        isDigit = isStringNumeric(strVal, isDigit);
+        return isDigit;
+    }
+
+    private <T> boolean isStringNumeric(String strVal, boolean isDigit) {
+        isDigit = isStringAllDigits(strVal, isDigit);
+        return isDigit;
+    }
+
+    private <T> boolean isStringAllDigits(String strVal, boolean isDigit) {
+        isDigit = checkStringForNonDigits(strVal, isDigit);
+        return isDigit;
+    }
+
+    private <T> boolean checkStringForNonDigits(String strVal, boolean isDigit) {
+        for (int i = 0;i < strVal.length();++i) {
+            char ch = strVal.charAt(i);
+            if (ch < '0' || ch > '9') {
+                isDigit = false;
+                break;
+            }
+        }
+        return isDigit;
+    }
+
+    private <T> T parseJsonToSqlTime(JSONLexer lexer) {
+        lexer.nextToken(JSONToken.LITERAL_STRING);
+        
+        if (lexer.token() != JSONToken.LITERAL_STRING) {
+            throw new JSONException("syntax error");
+        }
+        
+        lexer.nextTokenWithColon(JSONToken.LITERAL_INT);
+        
+        if (lexer.token() != JSONToken.LITERAL_INT) {
+            throw new JSONException("syntax error");
+        }
+        
+        long time = lexer.longValue();
+        lexer.nextToken(JSONToken.RBRACE);
+        if (lexer.token() != JSONToken.RBRACE) {
+            throw new JSONException("syntax error");
+        }
+        lexer.nextToken(JSONToken.COMMA);
+        
+        return (T) new java.sql.Time(time);
     }
 
     public int getFastMatchToken() {

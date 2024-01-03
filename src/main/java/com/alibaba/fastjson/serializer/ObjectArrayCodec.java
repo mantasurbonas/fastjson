@@ -36,7 +36,7 @@ public class ObjectArrayCodec implements ObjectSerializer, ObjectDeserializer {
 
     public static final ObjectArrayCodec instance = new ObjectArrayCodec();
 
-    public ObjectArrayCodec(){
+    public ObjectArrayCodec() {
     }
 
     public final void write(JSONSerializer serializer, Object object, Object fieldName, Type fieldType, int features)
@@ -68,22 +68,11 @@ public class ObjectArrayCodec implements ObjectSerializer, ObjectDeserializer {
             out.append('[');
 
             if (out.isEnabled(SerializerFeature.PrettyFormat)) {
-                serializer.incrementIndent();
-                serializer.println();
-                for (int i = 0; i < size; ++i) {
-                    if (i != 0) {
-                        out.write(',');
-                        serializer.println();
-                    }
-                    serializer.writeWithFieldName(array[i], Integer.valueOf(i));
-                }
-                serializer.decrementIdent();
-                serializer.println();
-                out.write(']');
+                writeArrayElements(serializer, out, array, size);
                 return;
             }
 
-            for (int i = 0; i < end; ++i) {
+            for (int i = 0;i < end;++i) {
                 Object item = array[i];
 
                 if (item == null) {
@@ -112,21 +101,44 @@ public class ObjectArrayCodec implements ObjectSerializer, ObjectDeserializer {
             if (item == null) {
                 out.append("null]");
             } else {
-                if (serializer.containsReference(item)) {
-                    serializer.writeReference(item);
-                } else {
-                    serializer.writeWithFieldName(item, end);
-                }
-                out.append(']');
+                writeSerializedItem(serializer, out, end, item);
             }
         } finally {
             serializer.context = context;
         }
     }
+
+    private void writeArrayElements(JSONSerializer serializer, SerializeWriter out, Object[] array, int size) {
+        serializer.incrementIndent();
+        serializer.println();
+        for (int i = 0;i < size;++i) {
+            writeArrayElement(serializer, out, array, i);
+        }
+        serializer.decrementIdent();
+        serializer.println();
+        out.write(']');
+    }
+
+    private void writeSerializedItem(JSONSerializer serializer, SerializeWriter out, int end, Object item) {
+        if (serializer.containsReference(item)) {
+            serializer.writeReference(item);
+        } else {
+            serializer.writeWithFieldName(item, end);
+        }
+        out.append(']');
+    }
+
+    private void writeArrayElement(JSONSerializer serializer, SerializeWriter out, Object[] array, int i) {
+        if (i != 0) {
+            out.write(',');
+            serializer.println();
+        }
+        serializer.writeWithFieldName(array[i], Integer.valueOf(i));
+    }
     
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> T deserialze(DefaultJSONParser parser, Type type, Object fieldName) {
-        final JSONLexer lexer = parser.lexer;
+        JSONLexer lexer = parser.lexer;
         int token = lexer.token();
         if (token == JSONToken.NULL) {
             lexer.nextToken(JSONToken.COMMA);
@@ -134,14 +146,7 @@ public class ObjectArrayCodec implements ObjectSerializer, ObjectDeserializer {
         }
 
         if (token == JSONToken.LITERAL_STRING || token == JSONToken.HEX) {
-            byte[] bytes = lexer.bytesValue();
-            lexer.nextToken(JSONToken.COMMA);
-
-            if (bytes.length == 0 && type != byte[].class) {
-                return null;
-            }
-
-            return (T) bytes;
+            return deserializeBytes(type, lexer);
         }
 
         Class componentClass;
@@ -150,28 +155,7 @@ public class ObjectArrayCodec implements ObjectSerializer, ObjectDeserializer {
             GenericArrayType clazz = (GenericArrayType) type;
             componentType = clazz.getGenericComponentType();
             if (componentType instanceof TypeVariable) {
-                TypeVariable typeVar = (TypeVariable) componentType;
-                Type objType = parser.getContext().type;
-                if (objType instanceof ParameterizedType) {
-                    ParameterizedType objParamType = (ParameterizedType) objType;
-                    Type objRawType = objParamType.getRawType();
-                    Type actualType = null;
-                    if (objRawType instanceof Class) {
-                        TypeVariable[] objTypeParams = ((Class) objRawType).getTypeParameters();
-                        for (int i = 0; i < objTypeParams.length; ++i) {
-                            if (objTypeParams[i].getName().equals(typeVar.getName())) {
-                                actualType = objParamType.getActualTypeArguments()[i];
-                            }
-                        }
-                    }
-                    if (actualType instanceof Class) {
-                        componentClass = (Class) actualType;
-                    } else {
-                        componentClass = Object.class;
-                    }
-                } else {
-                    componentClass = TypeUtils.getClass(typeVar.getBounds()[0]);
-                }
+                componentClass = getComponentTypeClass(parser, componentType);
             } else {
                 componentClass = TypeUtils.getClass(componentType);
             }
@@ -185,6 +169,55 @@ public class ObjectArrayCodec implements ObjectSerializer, ObjectDeserializer {
         return (T) toObjectArray(parser, componentClass, array);
     }
 
+    private <T> Class getComponentTypeClass(DefaultJSONParser parser, Type componentType) {
+        Class componentClass;
+        TypeVariable typeVar = (TypeVariable) componentType;
+        Type objType = parser.getContext().type;
+        if (objType instanceof ParameterizedType) {
+            componentClass = getComponentClass(typeVar, objType);
+        } else {
+            componentClass = TypeUtils.getClass(typeVar.getBounds()[0]);
+        }
+        return componentClass;
+    }
+
+    private <T> Class getComponentClass(TypeVariable typeVar, Type objType) {
+        Class componentClass;
+        ParameterizedType objParamType = (ParameterizedType) objType;
+        Type objRawType = objParamType.getRawType();
+        Type actualType = null;
+        if (objRawType instanceof Class) {
+            actualType = getActualTypeArgument(typeVar, objParamType, objRawType, actualType);
+        }
+        if (actualType instanceof Class) {
+            componentClass = (Class) actualType;
+        } else {
+            componentClass = Object.class;
+        }
+        return componentClass;
+    }
+
+    private <T> Type getActualTypeArgument(TypeVariable typeVar, ParameterizedType objParamType, Type objRawType, Type actualType) {
+        TypeVariable[] objTypeParams = ((Class) objRawType).getTypeParameters();
+        for (int i = 0;i < objTypeParams.length;++i) {
+            if (objTypeParams[i].getName().equals(typeVar.getName())) {
+                actualType = objParamType.getActualTypeArguments()[i];
+            }
+        }
+        return actualType;
+    }
+
+    private <T> T deserializeBytes(Type type, JSONLexer lexer) {
+        byte[] bytes = lexer.bytesValue();
+        lexer.nextToken(JSONToken.COMMA);
+
+        if (bytes.length == 0 && type != byte[].class) {
+            return null;
+        }
+
+        return (T) bytes;
+    }
+
     @SuppressWarnings("unchecked")
     private <T> T toObjectArray(DefaultJSONParser parser, Class<?> componentType, JSONArray array) {
         if (array == null) {
@@ -194,52 +227,74 @@ public class ObjectArrayCodec implements ObjectSerializer, ObjectDeserializer {
         int size = array.size();
 
         Object objArray = Array.newInstance(componentType, size);
-        for (int i = 0; i < size; ++i) {
-            Object value = array.get(i);
-
-            if (value == array) {
-                Array.set(objArray, i, objArray);
-                continue;
-            }
-
-            if (componentType.isArray()) {
-                Object element;
-                if (componentType.isInstance(value)) {
-                    element = value;
-                } else {
-                    element = toObjectArray(parser, componentType, (JSONArray) value);
-                }
-
-                Array.set(objArray, i, element);
-            } else {
-                Object element = null;
-                if (value instanceof JSONArray) {
-                    boolean contains = false;
-                    JSONArray valueArray = (JSONArray) value;
-                    int valueArraySize = valueArray.size();
-                    for (int y = 0; y < valueArraySize; ++y) {
-                        Object valueItem = valueArray.get(y);
-                        if (valueItem == array) {
-                            valueArray.set(i, objArray);
-                            contains = true;
-                        }
-                    }
-                    if (contains) {
-                        element = valueArray.toArray();
-                    }
-                }
-
-                if (element == null) {
-                    element = TypeUtils.cast(value, componentType, parser.getConfig());
-                }
-                Array.set(objArray, i, element);
-
-            }
-        }
+        for (int i = 0;i < size;++i)
+            parseArrayElement(parser, componentType, array, objArray, i);
 
         array.setRelatedArray(objArray);
         array.setComponentType(componentType);
         return (T) objArray; // TODO
+    }
+
+    private <T> void parseArrayElement(DefaultJSONParser parser, Class<?> componentType, JSONArray array, Object objArray,
+            int i) {
+        Object value = array.get(i);
+        if (value == array) {
+            Array.set(objArray, i, objArray);
+            return;
+        }
+        if (componentType.isArray()) {
+            setArrayElement(parser, componentType, objArray, i, value);
+        } else {
+            updateArrayElement(parser, componentType, array, objArray, i, value);
+
+        }
+    }
+
+    private <T> void updateArrayElement(DefaultJSONParser parser, Class<?> componentType, JSONArray array, Object objArray,
+            int i, Object value) {
+        Object element = null;
+        if (value instanceof JSONArray) {
+            element = updateElementIfValueMatch(array, objArray, i, value, element);
+        }
+
+        if (element == null) {
+            element = TypeUtils.cast(value, componentType, parser.getConfig());
+        }
+        Array.set(objArray, i, element);
+    }
+
+    private <T> Object updateElementIfValueMatch(JSONArray array, Object objArray, int i, Object value, Object element) {
+        boolean contains = false;
+        JSONArray valueArray = (JSONArray) value;
+        int valueArraySize = valueArray.size();
+        for (int y = 0;y < valueArraySize;++y) {
+            contains = setArrayValueIfMatch(array, objArray, i, contains, valueArray, y);
+        }
+        if (contains) {
+            element = valueArray.toArray();
+        }
+        return element;
+    }
+
+    private <T> boolean setArrayValueIfMatch(JSONArray array, Object objArray, int i, boolean contains, JSONArray valueArray,
+            int y) {
+        Object valueItem = valueArray.get(y);
+        if (valueItem == array) {
+            valueArray.set(i, objArray);
+            contains = true;
+        }
+        return contains;
+    }
+
+    private <T> void setArrayElement(DefaultJSONParser parser, Class<?> componentType, Object objArray, int i, Object value) {
+        Object element;
+        if (componentType.isInstance(value)) {
+            element = value;
+        } else {
+            element = toObjectArray(parser, componentType, (JSONArray) value);
+        }
+
+        Array.set(objArray, i, element);
     }
 
     public int getFastMatchToken() {

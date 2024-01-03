@@ -35,15 +35,15 @@ public class FloatCodec implements ObjectSerializer, ObjectDeserializer {
 
     public static FloatCodec instance = new FloatCodec();
 
-    public FloatCodec(){
+    public FloatCodec() {
 
     }
 
-    public FloatCodec(DecimalFormat decimalFormat){
+    public FloatCodec(DecimalFormat decimalFormat) {
         this.decimalFormat = decimalFormat;
     }
 
-    public FloatCodec(String decimalFormat){
+    public FloatCodec(String decimalFormat) {
         this(new DecimalFormat(decimalFormat));
     }
 
@@ -75,7 +75,7 @@ public class FloatCodec implements ObjectSerializer, ObjectDeserializer {
 
     @SuppressWarnings("unchecked")
     public static <T> T deserialze(DefaultJSONParser parser) {
-        final JSONLexer lexer = parser.lexer;
+        JSONLexer lexer = parser.lexer;
 
         if (lexer.token() == JSONToken.LITERAL_INT) {
             String val = lexer.numberString();

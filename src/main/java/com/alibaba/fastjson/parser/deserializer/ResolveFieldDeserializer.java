@@ -22,7 +22,7 @@ public final class ResolveFieldDeserializer extends FieldDeserializer {
     
     private final Collection collection;
 
-    public ResolveFieldDeserializer(DefaultJSONParser parser, List list, int index){
+    public ResolveFieldDeserializer(DefaultJSONParser parser, List list, int index) {
         super(null, null);
         this.parser = parser;
         this.index = index;
@@ -34,7 +34,7 @@ public final class ResolveFieldDeserializer extends FieldDeserializer {
         collection = null;
     }
     
-    public ResolveFieldDeserializer(Map map, Object index){
+    public ResolveFieldDeserializer(Map map, Object index) {
         super(null, null);
         
         this.parser = null;
@@ -47,7 +47,7 @@ public final class ResolveFieldDeserializer extends FieldDeserializer {
         collection = null;
     }
     
-    public ResolveFieldDeserializer(Collection collection){
+    public ResolveFieldDeserializer(Collection collection) {
         super(null, null);
         
         this.parser = null;
@@ -75,23 +75,35 @@ public final class ResolveFieldDeserializer extends FieldDeserializer {
         list.set(index, value);
 
         if (list instanceof JSONArray) {
-            JSONArray jsonArray = (JSONArray) list;
-            Object array = jsonArray.getRelatedArray();
-
-            if (array != null) {
-                int arrayLength = Array.getLength(array);
-
-                if (arrayLength > index) {
-                    Object item;
-                    if (jsonArray.getComponentType() != null) {
-                        item = TypeUtils.cast(value, jsonArray.getComponentType(), parser.getConfig());
-                    } else {
-                        item = value;
-                    }
-                    Array.set(array, index, item);
-                }
-            }
+            setRelatedArrayValue(value);
         }
+    }
+
+    private void setRelatedArrayValue(Object value) {
+        JSONArray jsonArray = (JSONArray) list;
+        Object array = jsonArray.getRelatedArray();
+
+        if (array != null) {
+            setJSONArrayValueIfValid(value, jsonArray, array);
+        }
+    }
+
+    private void setJSONArrayValueIfValid(Object value, JSONArray jsonArray, Object array) {
+        int arrayLength = Array.getLength(array);
+
+        if (arrayLength > index) {
+            setJSONArrayItem(value, jsonArray, array);
+        }
+    }
+
+    private void setJSONArrayItem(Object value, JSONArray jsonArray, Object array) {
+        Object item;
+        if (jsonArray.getComponentType() != null) {
+            item = TypeUtils.cast(value, jsonArray.getComponentType(), parser.getConfig());
+        } else {
+            item = value;
+        }
+        Array.set(array, index, item);
     }
 
     public void parseField(DefaultJSONParser parser, Object object, Type objectType, Map<String, Object> fieldValues) {

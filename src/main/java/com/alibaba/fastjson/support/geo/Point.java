@@ -16,7 +16,7 @@ public class Point extends Geometry {
     }
 
     public double[] getCoordinates() {
-        return new double[] {longitude, latitude};
+        return new double[]{longitude, latitude};
     }
 
     public void setCoordinates(double[] coordinates) {

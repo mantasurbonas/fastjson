@@ -36,6 +36,17 @@ public class JSONPDeserializer implements ObjectDeserializer {
             throw new JSONException("illegal jsonp : " + lexer.info());
         }
         lexer.nextToken();
+        parseJsonpParameters(parser, lexer, jsonp);
+        tok = lexer.token();
+        if (tok == JSONToken.SEMI) {
+            lexer.nextToken();
+        }
+
+        return (T) jsonp;
+    }
+
+    private <T> void parseJsonpParameters(DefaultJSONParser parser, JSONLexerBase lexer, JSONPObject jsonp) {
+        int tok;
         for (;;) {
             Object arg = parser.parse();
             jsonp.addParameter(arg);
@@ -43,19 +54,14 @@ public class JSONPDeserializer implements ObjectDeserializer {
             tok = lexer.token();
             if (tok == JSONToken.COMMA) {
                 lexer.nextToken();
-            } else if (tok == JSONToken.RPAREN) {
+            }
+            else{
+                if (tok != JSONToken.RPAREN)
+                    throw new JSONException("illegal jsonp : " + lexer.info());
                 lexer.nextToken();
                 break;
-            } else {
-                throw new JSONException("illegal jsonp : " + lexer.info());
             }
-         }
-        tok = lexer.token();
-        if (tok == JSONToken.SEMI) {
-            lexer.nextToken();
         }
-
-        return (T) jsonp;
     }
 
     public int getFastMatchToken() {

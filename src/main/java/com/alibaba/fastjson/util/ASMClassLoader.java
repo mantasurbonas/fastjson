@@ -69,7 +69,7 @@ public class ASMClassLoader extends ClassLoader {
             }
         });
         
-        Class<?>[] jsonClasses = new Class<?>[] {JSON.class,
+        Class<?>[] jsonClasses = new Class<?>[]{JSON.class,
             JSONObject.class,
             JSONArray.class,
             JSONPath.class,
@@ -136,12 +136,12 @@ public class ASMClassLoader extends ClassLoader {
         }
     }
     
-    public ASMClassLoader(){
+    public ASMClassLoader() {
         super(getParentClassLoader());
     }
 
-    public ASMClassLoader(ClassLoader parent){
-        super (parent);
+    public ASMClassLoader(ClassLoader parent) {
+        super(parent);
     }
 
     static ClassLoader getParentClassLoader() {
@@ -171,9 +171,7 @@ public class ASMClassLoader extends ClassLoader {
     }
 
     public Class<?> defineClassPublic(String name, byte[] b, int off, int len) throws ClassFormatError {
-        Class<?> clazz = defineClass(name, b, off, len, DOMAIN);
-
-        return clazz;
+        return defineClass(name, b, off, len, DOMAIN);
     }
 
     public boolean isExternalClass(Class<?> clazz) {

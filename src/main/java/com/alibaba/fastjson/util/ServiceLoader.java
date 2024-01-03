@@ -12,7 +12,7 @@ import java.util.Set;
 
 public class ServiceLoader {
 
-    private static final String      PREFIX     = "META-INF/services/";
+    private static final String      PREFIX = "META-INF/services/";
 
     private static final Set<String> loadedUrls = new HashSet<String>();
 
@@ -30,15 +30,7 @@ public class ServiceLoader {
         Set<String> serviceNames = new HashSet<String>();
 
         try {
-            Enumeration<URL> urls = classLoader.getResources(path);
-            while (urls.hasMoreElements()) {
-                URL url = urls.nextElement();
-                if (loadedUrls.contains(url.toString())) {
-                    continue;
-                }
-                load(url, serviceNames);
-                loadedUrls.add(url.toString());
-            }
+            loadServicesFromPath(classLoader, path, serviceNames);
         } catch (Throwable ex) {
             // skip
         }
@@ -56,31 +48,51 @@ public class ServiceLoader {
         return services;
     }
 
+    private static <T> void loadServicesFromPath(ClassLoader classLoader, String path, Set<String> serviceNames)
+            throws IOException {
+        Enumeration<URL> urls = classLoader.getResources(path);
+        while (urls.hasMoreElements())
+            loadNextUrl(serviceNames, urls);
+    }
+
+    private static <T> void loadNextUrl(Set<String> serviceNames, Enumeration<URL> urls) throws IOException {
+        URL url = urls.nextElement();
+        if (loadedUrls.contains(url.toString())) {
+            return;
+        }
+        load(url, serviceNames);
+        loadedUrls.add(url.toString());
+    }
+
     public static void load(URL url, Set<String> set) throws IOException {
         InputStream is = null;
         BufferedReader reader = null;
         try {
             is = url.openStream();
             reader = new BufferedReader(new InputStreamReader(is, "utf-8"));
-            for (;;) {
-                String line = reader.readLine();
-                if (line == null) {
-                    break;
-                }
-
-                int ci = line.indexOf('#');
-                if (ci >= 0) {
-                    line = line.substring(0, ci);
-                }
-                line = line.trim();
-                if (line.length() == 0) {
-                    continue;
-                }
-                set.add(line);
-            }
+            addLinesToSet(set, reader);
         } finally {
             IOUtils.close(reader);
             IOUtils.close(is);
+        }
+    }
+
+    private static void addLinesToSet(Set<String> set, BufferedReader reader) throws IOException {
+        for (;;) {
+            String line = reader.readLine();
+            if (line == null) {
+                break;
+            }
+
+            int ci = line.indexOf('#');
+            if (ci >= 0) {
+                line = line.substring(0, ci);
+            }
+            line = line.trim();
+            if (line.length() == 0) {
+                continue;
+            }
+            set.add(line);
         }
     }
 }

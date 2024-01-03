@@ -55,59 +55,73 @@ public class CollectionCodec implements ObjectSerializer, ObjectDeserializer {
         serializer.setContext(context, object, fieldName, 0);
 
         if (out.isEnabled(SerializerFeature.WriteClassName)) {
-            if (HashSet.class.isAssignableFrom(collection.getClass())) {
-                out.append("Set");
-            } else if (TreeSet.class == collection.getClass()) {
-                out.append("TreeSet");
-            }
+            appendCollectionType(out, collection);
         }
 
         try {
-            int i = 0;
-            out.append('[');
-            for (Object item : collection) {
-
-                if (i++ != 0) {
-                    out.append(',');
-                }
-
-                if (item == null) {
-                    out.writeNull();
-                    continue;
-                }
-
-                Class<?> clazz = item.getClass();
-
-                if (clazz == Integer.class) {
-                    out.writeInt(((Integer) item).intValue());
-                    continue;
-                }
-
-                if (clazz == Long.class) {
-                    out.writeLong(((Long) item).longValue());
-
-                    if (out.isEnabled(SerializerFeature.WriteClassName)) {
-                        out.write('L');
-                    }
-                    continue;
-                }
-
-                ObjectSerializer itemSerializer = serializer.getObjectWriter(clazz);
-                if (SerializerFeature.isEnabled(features, SerializerFeature.WriteClassName)
-                        && itemSerializer instanceof JavaBeanSerializer) {
-                    JavaBeanSerializer javaBeanSerializer = (JavaBeanSerializer) itemSerializer;
-                    javaBeanSerializer.writeNoneASM(serializer, item, i - 1, elementType, features);
-                } else {
-                    itemSerializer.write(serializer, item, i - 1, elementType, features);
-                }
-            }
-            out.append(']');
+            serializeCollection(serializer, features, out, elementType, collection);
         } finally {
             serializer.context = context;
         }
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private void serializeCollection(JSONSerializer serializer, int features, SerializeWriter out, Type elementType,
+            Collection<?> collection) throws IOException {
+        int i = 0;
+        out.append('[');
+        for (Object item : collection)
+            i = serializeItem(serializer, features, out, elementType, i, item);
+        out.append(']');
+    }
+
+    private int serializeItem(JSONSerializer serializer, int features, SerializeWriter out, Type elementType, int i,
+            Object item) throws IOException {
+        if (i++ != 0) {
+            out.append(',');
+        }
+        if (item == null) {
+            out.writeNull();
+            return i;
+        }
+        Class<?> clazz = item.getClass();
+        if (clazz == Integer.class) {
+            out.writeInt(((Integer) item).intValue());
+            return i;
+        }
+        if (clazz == Long.class) {
+            return writeLongValue(out, i, item);
+        }
+        ObjectSerializer itemSerializer = serializer.getObjectWriter(clazz);
+        if (SerializerFeature.isEnabled(features, SerializerFeature.WriteClassName)
+                && itemSerializer instanceof JavaBeanSerializer) {
+            JavaBeanSerializer javaBeanSerializer = (JavaBeanSerializer) itemSerializer;
+            javaBeanSerializer.writeNoneASM(serializer, item, i - 1, elementType, features);
+        } else {
+            itemSerializer.write(serializer, item, i - 1, elementType, features);
+        }
+        return i;
+    }
+
+    private int writeLongValue(SerializeWriter out, int i, Object item) {
+        out.writeLong(((Long) item).longValue());
+
+        if (out.isEnabled(SerializerFeature.WriteClassName)) {
+            out.write('L');
+        }
+        return i;
+    }
+
+    private void appendCollectionType(SerializeWriter out, Collection<?> collection) {
+        if (HashSet.class.isAssignableFrom(collection.getClass())) {
+            out.append("Set");
+            return;
+        }
+        if (TreeSet.class == collection.getClass()) {
+            out.append("TreeSet");
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> T deserialze(DefaultJSONParser parser, Type type, Object fieldName) {
         if (parser.lexer.token() == JSONToken.NULL) {
             parser.lexer.nextToken(JSONToken.COMMA);

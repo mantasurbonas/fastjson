@@ -41,25 +41,29 @@ public class LongCodec implements ObjectSerializer, ObjectDeserializer {
         if (object == null) {
             out.writeNull(SerializerFeature.WriteNullNumberAsZero);
         } else {
-            long value = ((Long) object).longValue();
-            out.writeLong(value);
-    
-            if (out.isEnabled(SerializerFeature.WriteClassName) //
-                && value <= Integer.MAX_VALUE && value >= Integer.MIN_VALUE //
-                && fieldType != Long.class
-                && fieldType != long.class) {
-                out.write('L');
-            }
+            writeLongValue(object, fieldType, out);
+        }
+    }
+
+    private void writeLongValue(Object object, Type fieldType, SerializeWriter out) {
+        long value = ((Long) object).longValue();
+        out.writeLong(value);
+   
+        if (out.isEnabled(SerializerFeature.WriteClassName) //
+		    && value <= Integer.MAX_VALUE && value >= Integer.MIN_VALUE //
+		    && fieldType != Long.class
+            && fieldType != long.class) {
+            out.write('L');
         }
     }
     
     @SuppressWarnings("unchecked")
     public <T> T deserialze(DefaultJSONParser parser, Type clazz, Object fieldName) {
-        final JSONLexer lexer = parser.lexer;
+        JSONLexer lexer = parser.lexer;
 
         Long longObject;
         try {
-            final int token = lexer.token();
+            int token = lexer.token();
             if (token == JSONToken.LITERAL_INT) {
                 long longValue = lexer.longValue();
                 lexer.nextToken(JSONToken.COMMA);

@@ -30,9 +30,9 @@ public class FastJsonAutoDiscoverable implements AutoDiscoverable {
         }
     }
 
-    public void configure(final FeatureContext context) {
+    public void configure(FeatureContext context) {
 
-        final Configuration config = context.getConfiguration();
+        Configuration config = context.getConfiguration();
 
         // Register FastJson.
         if (!config.isRegistered(FastJsonFeature.class) && autoDiscover) {

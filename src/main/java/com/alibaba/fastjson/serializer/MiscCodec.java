@@ -45,8 +45,10 @@ import com.alibaba.fastjson.util.TypeUtils;
 import org.w3c.dom.Node;
 
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
@@ -55,16 +57,16 @@ import javax.xml.transform.stream.StreamResult;
  */
 public class MiscCodec implements ObjectSerializer, ObjectDeserializer {
     private static      boolean   FILE_RELATIVE_PATH_SUPPORT = false;
-    public final static MiscCodec instance                   = new MiscCodec();
+    public final static MiscCodec instance = new MiscCodec();
     private static      Method    method_paths_get;
-    private static      boolean   method_paths_get_error     = false;
+    private static      boolean   method_paths_get_error = false;
 
     static {
         FILE_RELATIVE_PATH_SUPPORT = "true".equals(IOUtils.getStringProperty("fastjson.deserializer.fileRelativePathSupport"));
     }
 
     public void write(JSONSerializer serializer, Object object, Object fieldName, Type fieldType,
-                      int features) throws IOException {
+                         int features) throws IOException {
         SerializeWriter out = serializer.out;
 
         if (object == null) {
@@ -80,119 +82,163 @@ public class MiscCodec implements ObjectSerializer, ObjectDeserializer {
 
             if (out.isEnabled(SerializerFeature.WriteClassName)) {
                 if (object.getClass() != fieldType) {
-                    out.write('{');
-                    out.writeFieldName(JSON.DEFAULT_TYPE_KEY);
-                    serializer.write(object.getClass().getName());
-                    out.writeFieldValue(',', "val", pattern);
-                    out.write('}');
+                    writeObjectWithPattern(serializer, object, out, pattern);
                     return;
                 }
             }
 
             strVal = pattern;
-        } else if (objClass == Class.class) {
+        }
+        else if (objClass == Class.class) {
             Class<?> clazz = (Class<?>) object;
             strVal = clazz.getName();
-        } else if (objClass == InetSocketAddress.class) {
-            InetSocketAddress address = (InetSocketAddress) object;
-
-            InetAddress inetAddress = address.getAddress();
-
-            out.write('{');
-            if (inetAddress != null) {
-                out.writeFieldName("address");
-                serializer.write(inetAddress);
-                out.write(',');
+        }
+        else{
+            if (objClass == InetSocketAddress.class) {
+                writeInetSocketAddress(serializer, object, out);
+                return;
             }
-            out.writeFieldName("port");
-            out.writeInt(address.getPort());
-            out.write('}');
-            return;
-        } else if (object instanceof File) {
-            strVal = ((File) object).getPath();
-        } else if (object instanceof InetAddress) {
-            strVal = ((InetAddress) object).getHostAddress();
-        } else if (object instanceof TimeZone) {
-            TimeZone timeZone = (TimeZone) object;
-            strVal = timeZone.getID();
-        } else if (object instanceof Currency) {
-            Currency currency = (Currency) object;
-            strVal = currency.getCurrencyCode();
-        } else if (object instanceof JSONStreamAware) {
-            JSONStreamAware aware = (JSONStreamAware) object;
-            aware.writeJSONString(out);
-            return;
-        } else if (object instanceof Iterator) {
-            Iterator<?> it = ((Iterator<?>) object);
-            writeIterator(serializer, out, it);
-            return;
-        } else if (object instanceof Iterable) {
-            Iterator<?> it = ((Iterable<?>) object).iterator();
-            writeIterator(serializer, out, it);
-            return;
-        } else if (object instanceof Map.Entry) {
-            Map.Entry entry = (Map.Entry) object;
-            Object objKey = entry.getKey();
-            Object objVal = entry.getValue();
-
-            if (objKey instanceof String) {
-                String key = (String) objKey;
-
-                if (objVal instanceof String) {
-                    String value = (String) objVal;
-                    out.writeFieldValueStringWithDoubleQuoteCheck('{', key, value);
-                } else {
-                    out.write('{');
-                    out.writeFieldName(key);
-                    serializer.write(objVal);
+            if (object instanceof File) {
+                strVal = ((File) object).getPath();
+            }
+            else if (object instanceof InetAddress) {
+                strVal = ((InetAddress) object).getHostAddress();
+            }
+            else if (object instanceof TimeZone) {
+                TimeZone timeZone = (TimeZone) object;
+                strVal = timeZone.getID();
+            }
+            else if (object instanceof Currency) {
+                Currency currency = (Currency) object;
+                strVal = currency.getCurrencyCode();
+            }
+            else{
+                if (object instanceof JSONStreamAware) {
+                    JSONStreamAware aware = (JSONStreamAware) object;
+                    aware.writeJSONString(out);
+                    return;
                 }
-            } else {
-                out.write('{');
-                serializer.write(objKey);
-                out.write(':');
-                serializer.write(objVal);
+                if (object instanceof Iterator) {
+                    Iterator<?> it = (Iterator<?>) object;
+                    writeIterator(serializer, out, it);
+                    return;
+                }
+                if (object instanceof Iterable) {
+                    Iterator<?> it = ((Iterable<?>) object).iterator();
+                    writeIterator(serializer, out, it);
+                    return;
+                }
+                if (object instanceof Map.Entry) {
+                    serializeMapEntry(serializer, object, out);
+                    return;
+                }
+                if (object.getClass().getName().equals("net.sf.json.JSONNull")) {
+                    out.writeNull();
+                    return;
+                }
+                if (!(object instanceof org.w3c.dom.Node))
+                    throw new JSONException("not support class : " + objClass);
+                strVal = toString((Node) object);
             }
-            out.write('}');
-            return;
-        } else if (object.getClass().getName().equals("net.sf.json.JSONNull")) {
-            out.writeNull();
-            return;
-        } else if (object instanceof org.w3c.dom.Node) {
-            strVal = toString((Node) object);
-        } else {
-            throw new JSONException("not support class : " + objClass);
         }
 
         out.writeString(strVal);
     }
 
+    private void serializeMapEntry(JSONSerializer serializer, Object object, SerializeWriter out) {
+        Map.Entry entry = (Map.Entry) object;
+        Object objKey = entry.getKey();
+        Object objVal = entry.getValue();
+
+        if (objKey instanceof String) {
+            writeObjectField(serializer, out, objKey, objVal);
+        } else {
+            writeKeyValuePair(serializer, out, objKey, objVal);
+        }
+        out.write('}');
+    }
+
+    private void writeKeyValuePair(JSONSerializer serializer, SerializeWriter out, Object objKey, Object objVal) {
+        out.write('{');
+        serializer.write(objKey);
+        out.write(':');
+        serializer.write(objVal);
+    }
+
+    private void writeObjectField(JSONSerializer serializer, SerializeWriter out, Object objKey, Object objVal) {
+        String key = (String) objKey;
+
+        if (objVal instanceof String) {
+            String value = (String) objVal;
+            out.writeFieldValueStringWithDoubleQuoteCheck('{', key, value);
+        } else {
+            out.write('{');
+            out.writeFieldName(key);
+            serializer.write(objVal);
+        }
+    }
+
+    private void writeInetSocketAddress(JSONSerializer serializer, Object object, SerializeWriter out) {
+        InetSocketAddress address = (InetSocketAddress) object;
+
+        InetAddress inetAddress = address.getAddress();
+
+        out.write('{');
+        if (inetAddress != null) {
+            out.writeFieldName("address");
+            serializer.write(inetAddress);
+            out.write(',');
+        }
+        out.writeFieldName("port");
+        out.writeInt(address.getPort());
+        out.write('}');
+    }
+
+    private void writeObjectWithPattern(JSONSerializer serializer, Object object, SerializeWriter out, String pattern) {
+        out.write('{');
+        out.writeFieldName(JSON.DEFAULT_TYPE_KEY);
+        serializer.write(object.getClass().getName());
+        out.writeFieldValue(',', "val", pattern);
+        out.write('}');
+    }
+
     private static String toString(org.w3c.dom.Node node) {
         try {
-            TransformerFactory transFactory = TransformerFactory.newInstance();
-            Transformer transformer = transFactory.newTransformer();
-            DOMSource domSource = new DOMSource(node);
-
-            StringWriter out = new StringWriter();
-            transformer.transform(domSource, new StreamResult(out));
-            return out.toString();
+            return transformNodeToString(node);
         } catch (TransformerException e) {
             throw new JSONException("xml node to string error", e);
         }
+    }
+
+    private static String transformNodeToString(org.w3c.dom.Node node)
+            throws TransformerFactoryConfigurationError, TransformerConfigurationException, TransformerException {
+        TransformerFactory transFactory = TransformerFactory.newInstance();
+        Transformer transformer = transFactory.newTransformer();
+        DOMSource domSource = new DOMSource(node);
+
+        StringWriter out = new StringWriter();
+        transformer.transform(domSource, new StreamResult(out));
+        return out.toString();
     }
 
     protected void writeIterator(JSONSerializer serializer, SerializeWriter out, Iterator<?> it) {
         int i = 0;
         out.write('[');
         while (it.hasNext()) {
-            if (i != 0) {
-                out.write(',');
-            }
-            Object item = it.next();
-            serializer.write(item);
-            ++i;
+            i = writeNextItem(serializer, out, it, i);
         }
         out.write(']');
         return;
+    }
+
+    private int writeNextItem(JSONSerializer serializer, SerializeWriter out, Iterator<?> it, int i) {
+        if (i != 0) {
+            out.write(',');
+        }
+        Object item = it.next();
+        serializer.write(item);
+        ++i;
+        return i;
     }
 
     @SuppressWarnings("unchecked")
@@ -216,14 +262,11 @@ public class MiscCodec implements ObjectSerializer, ObjectDeserializer {
                 if (key.equals("address")) {
                     parser.accept(JSONToken.COLON);
                     address = parser.parseObject(InetAddress.class);
-                } else if (key.equals("port")) {
-                    parser.accept(JSONToken.COLON);
-                    if (lexer.token() != JSONToken.LITERAL_INT) {
-                        throw new JSONException("port is not int");
-                    }
-                    port = lexer.intValue();
-                    lexer.nextToken();
-                } else {
+                }
+                else if (key.equals("port")) {
+                    port = parsePortNumber(parser, lexer);
+                }
+                else {
                     parser.accept(JSONToken.COLON);
                     parser.parse();
                 }
@@ -244,24 +287,9 @@ public class MiscCodec implements ObjectSerializer, ObjectDeserializer {
         Object objVal;
 
         if (parser.resolveStatus == DefaultJSONParser.TypeNameRedirect) {
-            parser.resolveStatus = DefaultJSONParser.NONE;
-            parser.accept(JSONToken.COMMA);
-
-            if (lexer.token() == JSONToken.LITERAL_STRING) {
-                if (!"val".equals(lexer.stringVal())) {
-                    throw new JSONException("syntax error");
-                }
-                lexer.nextToken();
-            } else {
-                throw new JSONException("syntax error");
-            }
-
-            parser.accept(JSONToken.COLON);
-
-            objVal = parser.parse();
-
-            parser.accept(JSONToken.RBRACE);
-        } else {
+            objVal = parseJsonObjectValue(parser, lexer);
+        }
+        else {
             objVal = parser.parse();
         }
 
@@ -269,31 +297,11 @@ public class MiscCodec implements ObjectSerializer, ObjectDeserializer {
 
         if (objVal == null) {
             strVal = null;
-        } else if (objVal instanceof String) {
+        }
+        else{
+            if (!(objVal instanceof String))
+                return deserializeObject(clazz, objVal);
             strVal = (String) objVal;
-        } else {
-            if (objVal instanceof JSONObject) {
-                JSONObject jsonObject = (JSONObject) objVal;
-
-                if (clazz == Currency.class) {
-                    String currency = jsonObject.getString("currency");
-                    if (currency != null) {
-                        return (T) Currency.getInstance(currency);
-                    }
-
-                    String symbol = jsonObject.getString("currencyCode");
-                    if (symbol != null) {
-                        return (T) Currency.getInstance(symbol);
-                    }
-                }
-
-                if (clazz == Map.Entry.class) {
-                   return (T) jsonObject.entrySet().iterator().next();
-                }
-
-                return jsonObject.toJavaObject(clazz);
-            }
-            throw new JSONException("expect string");
         }
 
         if (strVal == null || strVal.length() == 0) {
@@ -339,11 +347,7 @@ public class MiscCodec implements ObjectSerializer, ObjectDeserializer {
         }
 
         if (clazz == File.class) {
-            if (strVal.indexOf("..") >= 0 && !FILE_RELATIVE_PATH_SUPPORT) {
-                throw new JSONException("file relative path not support.");
-            }
-
-            return (T) new File(strVal);
+            return createFileFromPath(strVal);
         }
 
         if (clazz == TimeZone.class) {
@@ -374,32 +378,113 @@ public class MiscCodec implements ObjectSerializer, ObjectDeserializer {
 
 
         if (clazz instanceof Class) {
-            String className = ((Class) clazz).getName();
-
-            if (className.equals("java.nio.file.Path")) {
-                try {
-                    if (method_paths_get == null && !method_paths_get_error) {
-                        Class<?> paths = TypeUtils.loadClass("java.nio.file.Paths");
-                        method_paths_get = paths.getMethod("get", String.class, String[].class);
-                    }
-                    if (method_paths_get != null) {
-                        return (T) method_paths_get.invoke(null, strVal, new String[0]);
-                    }
-
-                    throw new JSONException("Path deserialize erorr");
-                } catch (NoSuchMethodException ex) {
-                    method_paths_get_error = true;
-                } catch (IllegalAccessException ex) {
-                    throw new JSONException("Path deserialize erorr", ex);
-                } catch (InvocationTargetException ex) {
-                    throw new JSONException("Path deserialize erorr", ex);
-                }
-            }
-
-            throw new JSONException("MiscCodec not support " + className);
+            return deserializePath(clazz, strVal);
         }
 
         throw new JSONException("MiscCodec not support " + clazz.toString());
+    }
+
+    private <T> T deserializePath(Type clazz, String strVal) {
+        String className = ((Class) clazz).getName();
+
+        if (className.equals("java.nio.file.Path")) {
+            try {
+                return getDeserializedPath(strVal);
+            } catch (NoSuchMethodException ex) {
+                method_paths_get_error = true;
+            } catch (IllegalAccessException ex) {
+                throw new JSONException("Path deserialize erorr", ex);
+            } catch (InvocationTargetException ex) {
+                throw new JSONException("Path deserialize erorr", ex);
+            }
+        }
+
+        throw new JSONException("MiscCodec not support " + className);
+    }
+
+    private <T> T deserializeObject(Type clazz, Object objVal) {
+        if (objVal instanceof JSONObject) {
+            return deserializeJsonObject(clazz, objVal);
+        }
+        throw new JSONException("expect string");
+    }
+
+    private <T> Object parseJsonObjectValue(DefaultJSONParser parser, JSONLexer lexer) {
+        Object objVal;
+        parser.resolveStatus = DefaultJSONParser.NONE;
+        parser.accept(JSONToken.COMMA);
+
+        if (lexer.token() != JSONToken.LITERAL_STRING)
+            throw new JSONException("syntax error");
+        validateLexerValue(lexer);
+
+        parser.accept(JSONToken.COLON);
+
+        objVal = parser.parse();
+
+        parser.accept(JSONToken.RBRACE);
+        return objVal;
+    }
+
+    private <T> T getDeserializedPath(String strVal)
+            throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+        if (method_paths_get == null && !method_paths_get_error) {
+            Class<?> paths = TypeUtils.loadClass("java.nio.file.Paths");
+            method_paths_get = paths.getMethod("get", String.class, String[].class);
+        }
+        if (method_paths_get != null) {
+            return (T) method_paths_get.invoke(null, strVal, new String[0]);
+        }
+
+        throw new JSONException("Path deserialize erorr");
+    }
+
+    private <T> T createFileFromPath(String strVal) {
+        if (strVal.indexOf("..") >= 0 && !FILE_RELATIVE_PATH_SUPPORT) {
+            throw new JSONException("file relative path not support.");
+        }
+
+        return (T) new File(strVal);
+    }
+
+    private <T> T deserializeJsonObject(Type clazz, Object objVal) {
+        JSONObject jsonObject = (JSONObject) objVal;
+
+        if (clazz == Currency.class) {
+            String currency = jsonObject.getString("currency");
+            if (currency != null) {
+                return (T) Currency.getInstance(currency);
+            }
+
+            String symbol = jsonObject.getString("currencyCode");
+            if (symbol != null) {
+                return (T) Currency.getInstance(symbol);
+            }
+        }
+
+        if (clazz == Map.Entry.class) {
+           return (T) jsonObject.entrySet().iterator().next();
+        }
+
+        return jsonObject.toJavaObject(clazz);
+    }
+
+    private <T> void validateLexerValue(JSONLexer lexer) {
+        if (!"val".equals(lexer.stringVal())) {
+            throw new JSONException("syntax error");
+        }
+        lexer.nextToken();
+    }
+
+    private <T> int parsePortNumber(DefaultJSONParser parser, JSONLexer lexer) {
+        int port;
+        parser.accept(JSONToken.COLON);
+        if (lexer.token() != JSONToken.LITERAL_INT) {
+            throw new JSONException("port is not int");
+        }
+        port = lexer.intValue();
+        lexer.nextToken();
+        return port;
     }
 
     public int getFastMatchToken() {

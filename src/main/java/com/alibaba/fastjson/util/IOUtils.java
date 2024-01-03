@@ -16,6 +16,7 @@
 package com.alibaba.fastjson.util;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.nio.ByteBuffer;
@@ -37,16 +38,16 @@ import com.alibaba.fastjson.JSONException;
  */
 public class IOUtils {
     
-    public final static String     FASTJSON_PROPERTIES              = "fastjson.properties";
-    public final static String     FASTJSON_COMPATIBLEWITHJAVABEAN  = "fastjson.compatibleWithJavaBean";
+    public final static String     FASTJSON_PROPERTIES = "fastjson.properties";
+    public final static String     FASTJSON_COMPATIBLEWITHJAVABEAN = "fastjson.compatibleWithJavaBean";
     public final static String     FASTJSON_COMPATIBLEWITHFIELDNAME = "fastjson.compatibleWithFieldName";
-    public final static Properties DEFAULT_PROPERTIES               = new Properties();
-    public final static Charset    UTF8                             = Charset.forName("UTF-8");
-    public final static char[]     DIGITS                           = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-    public final static boolean[]  firstIdentifierFlags             = new boolean[256];
-    public final static boolean[]  identifierFlags                  = new boolean[256];
+    public final static Properties DEFAULT_PROPERTIES = new Properties();
+    public final static Charset    UTF8 = Charset.forName("UTF-8");
+    public final static char[]     DIGITS = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+    public final static boolean[]  firstIdentifierFlags = new boolean[256];
+    public final static boolean[]  identifierFlags = new boolean[256];
     static {
-        for (char c = 0; c < firstIdentifierFlags.length; ++c) {
+        for (char c = 0;c < firstIdentifierFlags.length;++c) {
             if (c >= 'A' && c <= 'Z') {
                 firstIdentifierFlags[c] = true;
             } else if (c >= 'a' && c <= 'z') {
@@ -56,7 +57,7 @@ public class IOUtils {
             }
         }
 
-        for (char c = 0; c < identifierFlags.length; ++c) {
+        for (char c = 0;c < identifierFlags.length;++c) {
             if (c >= 'A' && c <= 'Z') {
                 identifierFlags[c] = true;
             } else if (c >= 'a' && c <= 'z') {
@@ -82,18 +83,16 @@ public class IOUtils {
         } catch (SecurityException e) {
             //skip
         }
-        return (prop == null) ? DEFAULT_PROPERTIES.getProperty(name) : prop;
+        return prop == null ? DEFAULT_PROPERTIES.getProperty(name) : prop;
     }
     
-    public static void loadPropertiesFromFile(){
+    public static void loadPropertiesFromFile() {
         InputStream imputStream = AccessController.doPrivileged(new PrivilegedAction<InputStream>() {
             public InputStream run() {
                 ClassLoader cl = Thread.currentThread().getContextClassLoader();
-                if (cl != null) {
+                if (cl != null)
                     return cl.getResourceAsStream(FASTJSON_PROPERTIES);
-                } else {
-                    return ClassLoader.getSystemResourceAsStream(FASTJSON_PROPERTIES);
-                }
+                return ClassLoader.getSystemResourceAsStream(FASTJSON_PROPERTIES);
             }
         });
         
@@ -112,7 +111,7 @@ public class IOUtils {
     public final static boolean[] specicalFlags_doubleQuotesFlags = new boolean[161];
     public final static boolean[] specicalFlags_singleQuotesFlags = new boolean[161];
 
-    public final static char[]    replaceChars               = new char[93];
+    public final static char[]    replaceChars = new char[93];
     static {
         specicalFlags_doubleQuotes['\0'] = 4;
         specicalFlags_doubleQuotes['\1'] = 4;
@@ -148,17 +147,17 @@ public class IOUtils {
         specicalFlags_singleQuotes['\\'] = 1; // 92
         specicalFlags_singleQuotes['\''] = 1; // 39
 
-        for (int i = 14; i <= 31; ++i) {
+        for (int i = 14;i <= 31;++i) {
             specicalFlags_doubleQuotes[i] = 4;
             specicalFlags_singleQuotes[i] = 4;
         }
 
-        for (int i = 127; i < 160; ++i) {
+        for (int i = 127;i < 160;++i) {
             specicalFlags_doubleQuotes[i] = 4;
             specicalFlags_singleQuotes[i] = 4;
         }
         
-        for (int i = 0; i < 161; ++i) {
+        for (int i = 0;i < 161;++i) {
             specicalFlags_doubleQuotesFlags[i] = specicalFlags_doubleQuotes[i] != 0;
             specicalFlags_singleQuotesFlags[i] = specicalFlags_singleQuotes[i] != 0;
         }
@@ -183,7 +182,7 @@ public class IOUtils {
         replaceChars['\\'] = '\\'; // 92
     }
 
-    public final static char[]    ASCII_CHARS                = { '0', '0', '0', '1', '0', '2', '0', '3', '0', '4', '0',
+    public final static char[]    ASCII_CHARS = {'0', '0', '0', '1', '0', '2', '0', '3', '0', '4', '0',
             '5', '0', '6', '0', '7', '0', '8', '0', '9', '0', 'A', '0', 'B', '0', 'C', '0', 'D', '0', 'E', '0', 'F',
             '1', '0', '1', '1', '1', '2', '1', '3', '1', '4', '1', '5', '1', '6', '1', '7', '1', '8', '1', '9', '1',
             'A', '1', 'B', '1', 'C', '1', 'D', '1', 'E', '1', 'F', '2', '0', '2', '1', '2', '2', '2', '3', '2', '4',
@@ -191,20 +190,23 @@ public class IOUtils {
             'F',                                            };
 
     public static void close(Closeable x) {
-        if (x != null) {
-            try {
-                x.close();
-            } catch (Exception e) {
-                // skip
-            }
+        if (x == null) {
+            return;
+        }
+        try {
+            x.close();
+        } catch (Exception e) {
+            // skip
         }
     }
 
     // Requires positive x
     public static int stringSize(long x) {
         long p = 10;
-        for (int i = 1; i < 19; i++) {
-            if (x < p) return i;
+        for (int i = 1;i < 19;i++) {
+            if (x < p) {
+                return i;
+            }
             p = 10 * p;
         }
         return 19;
@@ -250,7 +252,9 @@ public class IOUtils {
             r = i2 - ((q2 << 3) + (q2 << 1)); // r = i2-(q2*10) ...
             buf[--charPos] = digits[r];
             i2 = q2;
-            if (i2 == 0) break;
+            if (i2 == 0) {
+                break;
+            }
         }
         if (sign != 0) {
             buf[--charPos] = sign;
@@ -263,7 +267,9 @@ public class IOUtils {
      * backwards from there. Will fail if i == Integer.MIN_VALUE
      */
     public static void getChars(int i, int index, char[] buf) {
-        int q, r, p = index;
+        int q;
+        int r;
+        int p = index;
         char sign = 0;
 
         if (i < 0) {
@@ -287,7 +293,9 @@ public class IOUtils {
             r = i - ((q << 3) + (q << 1)); // r = i-(q*10) ...
             buf[--p] = digits[r];
             i = q;
-            if (i == 0) break;
+            if (i == 0) {
+                break;
+            }
         }
         if (sign != 0) {
             buf[--p] = sign;
@@ -296,7 +304,8 @@ public class IOUtils {
 
     public static void getChars(byte b, int index, char[] buf) {
         int i = b;
-        int q, r;
+        int q;
+        int r;
         int charPos = index;
         char sign = 0;
 
@@ -312,7 +321,9 @@ public class IOUtils {
             r = i - ((q << 3) + (q << 1)); // r = i-(q*10) ...
             buf[--charPos] = digits[r];
             i = q;
-            if (i == 0) break;
+            if (i == 0) {
+                break;
+            }
         }
         if (sign != 0) {
             buf[--charPos] = sign;
@@ -322,26 +333,26 @@ public class IOUtils {
     /**
      * All possible chars for representing a number as a String
      */
-    final static char[] digits    = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-            'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z' };
+    final static char[] digits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+            'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
 
-    final static char[] DigitTens = { '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '1', '1', '1', '1', '1',
+    final static char[] DigitTens = {'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '1', '1', '1', '1', '1',
             '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '3', '3', '3', '3', '3', '3', '3',
             '3', '3', '3', '4', '4', '4', '4', '4', '4', '4', '4', '4', '4', '5', '5', '5', '5', '5', '5', '5', '5',
             '5', '5', '6', '6', '6', '6', '6', '6', '6', '6', '6', '6', '7', '7', '7', '7', '7', '7', '7', '7', '7',
             '7', '8', '8', '8', '8', '8', '8', '8', '8', '8', '8', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', };
 
-    final static char[] DigitOnes = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5',
+    final static char[] DigitOnes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5',
             '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6',
             '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7',
             '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8',
             '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', };
 
-    final static int[]  sizeTable = { 9, 99, 999, 9999, 99999, 999999, 9999999, 99999999, 999999999, Integer.MAX_VALUE };
+    final static int[]  sizeTable = {9, 99, 999, 9999, 99999, 999999, 9999999, 99999999, 999999999, Integer.MAX_VALUE};
 
     // Requires positive x
     public static int stringSize(int x) {
-        for (int i = 0;; i++) {
+        for (int i = 0;;i++) {
             if (x <= sizeTable[i]) {
                 return i + 1;
             }
@@ -350,21 +361,28 @@ public class IOUtils {
 
     public static void decode(CharsetDecoder charsetDecoder, ByteBuffer byteBuf, CharBuffer charByte) {
         try {
-            CoderResult cr = charsetDecoder.decode(byteBuf, charByte, true);
-
-            if (!cr.isUnderflow()) {
-                cr.throwException();
-            }
-
-            cr = charsetDecoder.flush(charByte);
-
-            if (!cr.isUnderflow()) {
-                cr.throwException();
-            }
+            decodeCharset(charsetDecoder, byteBuf, charByte);
         } catch (CharacterCodingException x) {
             // Substitution is always enabled,
             // so this shouldn't happen
             throw new JSONException("utf8 decode error, " + x.getMessage(), x);
+        }
+    }
+
+    private static void decodeCharset(CharsetDecoder charsetDecoder, ByteBuffer byteBuf, CharBuffer charByte)
+            throws CharacterCodingException {
+        CoderResult cr = charsetDecoder.decode(byteBuf, charByte, true);
+
+        assertCoderResultUnderflow(cr);
+
+        cr = charsetDecoder.flush(charByte);
+
+        assertCoderResultUnderflow(cr);
+    }
+
+    private static void assertCoderResultUnderflow(CoderResult cr) throws CharacterCodingException {
+        if (!cr.isUnderflow()) {
+            cr.throwException();
         }
     }
 
@@ -380,8 +398,9 @@ public class IOUtils {
     public static final int[]  IA = new int[256];
     static {
         Arrays.fill(IA, -1);
-        for (int i = 0, iS = CA.length; i < iS; i++)
+        for (int i = 0, iS = CA.length;i < iS;i++) {
             IA[CA[i]] = i;
+        }
         IA['='] = 0;
     }
 
@@ -403,15 +422,18 @@ public class IOUtils {
             return new byte[0];
         }
 
-        int sIx = offset, eIx = offset + charsLen - 1; // Start and end index after trimming.
+        int sIx = offset;
+        int eIx = offset + charsLen - 1; // Start and end index after trimming.
 
         // Trim illegal chars from start
-        while (sIx < eIx && IA[chars[sIx]] < 0)
+        while (sIx < eIx && IA[chars[sIx]] < 0) {
             sIx++;
+        }
 
         // Trim illegal chars from end
-        while (eIx > 0 && IA[chars[eIx]] < 0)
+        while (eIx > 0 && IA[chars[eIx]] < 0) {
             eIx--;
+        }
 
         // get the padding count (=) (0, 1 or 2)
         int pad = chars[eIx] == '=' ? (chars[eIx - 1] == '=' ? 2 : 1) : 0; // Count '=' at end.
@@ -423,7 +445,7 @@ public class IOUtils {
 
         // Decode all but the last 0 - 2 bytes.
         int d = 0;
-        for (int cc = 0, eLen = (len / 3) * 3; d < eLen;) {
+        for (int cc = 0, eLen = (len / 3) * 3;d < eLen;) {
             // Assemble three bytes into an int from four "valid" characters.
             int i = IA[chars[sIx++]] << 18 | IA[chars[sIx++]] << 12 | IA[chars[sIx++]] << 6 | IA[chars[sIx++]];
 
@@ -442,11 +464,13 @@ public class IOUtils {
         if (d < len) {
             // Decode last 1-3 bytes (incl '=') into 1-3 bytes
             int i = 0;
-            for (int j = 0; sIx <= eIx - pad; j++)
+            for (int j = 0;sIx <= eIx - pad;j++) {
                 i |= IA[chars[sIx++]] << (18 - j * 6);
+            }
 
-            for (int r = 16; d < len; r -= 8)
+            for (int r = 16;d < len;r -= 8) {
                 bytes[d++] = (byte) (i >> r);
+            }
         }
 
         return bytes;
@@ -461,15 +485,18 @@ public class IOUtils {
             return new byte[0];
         }
 
-        int sIx = offset, eIx = offset + charsLen - 1; // Start and end index after trimming.
+        int sIx = offset;
+        int eIx = offset + charsLen - 1; // Start and end index after trimming.
 
         // Trim illegal chars from start
-        while (sIx < eIx && IA[chars.charAt(sIx)] < 0)
+        while (sIx < eIx && IA[chars.charAt(sIx)] < 0) {
             sIx++;
+        }
 
         // Trim illegal chars from end
-        while (eIx > 0 && IA[chars.charAt(eIx)] < 0)
+        while (eIx > 0 && IA[chars.charAt(eIx)] < 0) {
             eIx--;
+        }
 
         // get the padding count (=) (0, 1 or 2)
         int pad = chars.charAt(eIx) == '=' ? (chars.charAt(eIx - 1) == '=' ? 2 : 1) : 0; // Count '=' at end.
@@ -481,7 +508,7 @@ public class IOUtils {
 
         // Decode all but the last 0 - 2 bytes.
         int d = 0;
-        for (int cc = 0, eLen = (len / 3) * 3; d < eLen;) {
+        for (int cc = 0, eLen = (len / 3) * 3;d < eLen;) {
             // Assemble three bytes into an int from four "valid" characters.
             int i = IA[chars.charAt(sIx++)] << 18
                     | IA[chars.charAt(sIx++)] << 12
@@ -503,11 +530,13 @@ public class IOUtils {
         if (d < len) {
             // Decode last 1-3 bytes (incl '=') into 1-3 bytes
             int i = 0;
-            for (int j = 0; sIx <= eIx - pad; j++)
+            for (int j = 0;sIx <= eIx - pad;j++) {
                 i |= IA[chars.charAt(sIx++)] << (18 - j * 6);
+            }
 
-            for (int r = 16; d < len; r -= 8)
+            for (int r = 16;d < len;r -= 8) {
                 bytes[d++] = (byte) (i >> r);
+            }
         }
 
         return bytes;
@@ -532,15 +561,18 @@ public class IOUtils {
             return new byte[0];
         }
 
-        int sIx = 0, eIx = sLen - 1; // Start and end index after trimming.
+        int sIx = 0;
+        int eIx = sLen - 1; // Start and end index after trimming.
 
         // Trim illegal chars from start
-        while (sIx < eIx && IA[s.charAt(sIx) & 0xff] < 0)
+        while (sIx < eIx && IA[s.charAt(sIx) & 0xff] < 0) {
             sIx++;
+        }
 
         // Trim illegal chars from end
-        while (eIx > 0 && IA[s.charAt(eIx) & 0xff] < 0)
+        while (eIx > 0 && IA[s.charAt(eIx) & 0xff] < 0) {
             eIx--;
+        }
 
         // get the padding count (=) (0, 1 or 2)
         int pad = s.charAt(eIx) == '=' ? (s.charAt(eIx - 1) == '=' ? 2 : 1) : 0; // Count '=' at end.
@@ -552,7 +584,7 @@ public class IOUtils {
 
         // Decode all but the last 0 - 2 bytes.
         int d = 0;
-        for (int cc = 0, eLen = (len / 3) * 3; d < eLen;) {
+        for (int cc = 0, eLen = (len / 3) * 3;d < eLen;) {
             // Assemble three bytes into an int from four "valid" characters.
             int i = IA[s.charAt(sIx++)] << 18 | IA[s.charAt(sIx++)] << 12 | IA[s.charAt(sIx++)] << 6
                     | IA[s.charAt(sIx++)];
@@ -572,11 +604,13 @@ public class IOUtils {
         if (d < len) {
             // Decode last 1-3 bytes (incl '=') into 1-3 bytes
             int i = 0;
-            for (int j = 0; sIx <= eIx - pad; j++)
+            for (int j = 0;sIx <= eIx - pad;j++) {
                 i |= IA[s.charAt(sIx++)] << (18 - j * 6);
+            }
 
-            for (int r = 16; d < len; r -= 8)
+            for (int r = 16;d < len;r -= 8) {
                 dArr[d++] = (byte) (i >> r);
+            }
         }
 
         return dArr;
@@ -602,7 +636,7 @@ public class IOUtils {
                 bytes[dp++] = (byte) (0xc0 | (c >> 6));
                 bytes[dp++] = (byte) (0x80 | (c & 0x3f));
             } else if (c >= '\uD800' && c < ('\uDFFF' + 1)) { //Character.isSurrogate(c) but 1.7
-                final int uc;
+                int uc;
                 int ip = offset - 1;
                 if (c >= '\uD800' && c < ('\uDBFF' + 1)) { // Character.isHighSurrogate(c)
                     if (sl - ip < 2) {
@@ -632,7 +666,7 @@ public class IOUtils {
                 if (uc < 0) {
                     bytes[dp++] = (byte) '?';
                 } else {
-                    bytes[dp++] = (byte) (0xf0 | ((uc >> 18)));
+                    bytes[dp++] = (byte) (0xf0 | (uc >> 18));
                     bytes[dp++] = (byte) (0x80 | ((uc >> 12) & 0x3f));
                     bytes[dp++] = (byte) (0x80 | ((uc >> 6) & 0x3f));
                     bytes[dp++] = (byte) (0x80 | (uc & 0x3f));
@@ -640,7 +674,7 @@ public class IOUtils {
                 }
             } else {
                 // 3 bytes, 16 bits
-                bytes[dp++] = (byte) (0xe0 | ((c >> 12)));
+                bytes[dp++] = (byte) (0xe0 | (c >> 12));
                 bytes[dp++] = (byte) (0x80 | ((c >> 6) & 0x3f));
                 bytes[dp++] = (byte) (0x80 | (c & 0x3f));
             }
@@ -652,89 +686,84 @@ public class IOUtils {
      * @deprecated
      */
     public static int decodeUTF8(byte[] sa, int sp, int len, char[] da) {
-        final int sl = sp + len;
+        int sl = sp + len;
         int dp = 0;
         int dlASCII = Math.min(len, da.length);
 
         // ASCII only optimized loop
-        while (dp < dlASCII && sa[sp] >= 0)
+        while (dp < dlASCII && sa[sp] >= 0) {
             da[dp++] = (char) sa[sp++];
+        }
 
         while (sp < sl) {
             int b1 = sa[sp++];
-            if (b1 >= 0) {
-                // 1 byte, 7 bits: 0xxxxxxx
-                da[dp++] = (char) b1;
-            } else if ((b1 >> 5) == -2 && (b1 & 0x1e) != 0) {
-                // 2 bytes, 11 bits: 110xxxxx 10xxxxxx
-                if (sp < sl) {
-                    int b2 = sa[sp++];
-                    if ((b2 & 0xc0) != 0x80) { // isNotContinuation(b2)
-                        return -1;
-                    } else {
-                        da[dp++] = (char) (((b1 << 6) ^ b2)^
-                                       (((byte) 0xC0 << 6) ^
-                                        ((byte) 0x80 << 0)));
-                    }
-                    continue;
-                }
-                return -1;
-            } else if ((b1 >> 4) == -2) {
-                // 3 bytes, 16 bits: 1110xxxx 10xxxxxx 10xxxxxx
-                if (sp + 1 < sl) {
-                    int b2 = sa[sp++];
-                    int b3 = sa[sp++];
-                    if ((b1 == (byte) 0xe0 && (b2 & 0xe0) == 0x80) //
-                        || (b2 & 0xc0) != 0x80 //
-                        || (b3 & 0xc0) != 0x80) { // isMalformed3(b1, b2, b3)
-                        return -1;
-                    } else {
-                        char c = (char)((b1 << 12) ^
-                                          (b2 <<  6) ^
-                                          (b3 ^
-                                          (((byte) 0xE0 << 12) ^
-                                          ((byte) 0x80 <<  6) ^
-                                          ((byte) 0x80 <<  0))));
-                        boolean isSurrogate = c >= '\uD800' && c < ('\uDFFF' + 1);
-                        if (isSurrogate) {
+            if (b1 < 0){
+                if ((b1 >> 5) == -2 && (b1 & 0x1e) != 0) {
+                    // 2 bytes, 11 bits: 110xxxxx 10xxxxxx
+                    if (sp < sl) {
+                        int b2 = sa[sp++];
+                        if ((b2 & 0xc0) != 0x80) // isNotContinuation(b2)
                             return -1;
-                        } else {
-                            da[dp++] = c;
-                        }
+                        da[dp++] = (char) (((b1 << 6) ^ b2)
+                                ^ (((byte) 0xC0 << 6)
+                                ^ ((byte) 0x80 << 0)));
+                        continue;
                     }
-                    continue;
+                    return -1;
                 }
-                return -1;
-            } else if ((b1 >> 3) == -2) {
-                // 4 bytes, 21 bits: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-                if (sp + 2 < sl) {
-                    int b2 = sa[sp++];
-                    int b3 = sa[sp++];
-                    int b4 = sa[sp++];
-                    int uc = ((b1 << 18) ^
-                              (b2 << 12) ^
-                              (b3 <<  6) ^
-                              (b4 ^
-                               (((byte) 0xF0 << 18) ^
-                               ((byte) 0x80 << 12) ^
-                               ((byte) 0x80 <<  6) ^
-                               ((byte) 0x80 <<  0))));
-                    if (((b2 & 0xc0) != 0x80 || (b3 & 0xc0) != 0x80 || (b4 & 0xc0) != 0x80) // isMalformed4
-                        ||
-                        // shortest form check
-                        !(uc >= 0x010000 && uc <  0X10FFFF + 1) // !Character.isSupplementaryCodePoint(uc)
-                    ) {
-                        return -1;
-                    } else {
-                        da[dp++] =  (char) ((uc >>> 10) + ('\uD800' - (0x010000 >>> 10))); // Character.highSurrogate(uc);
-                        da[dp++] = (char) ((uc & 0x3ff) + '\uDC00'); // Character.lowSurrogate(uc);
+                if ((b1 >> 4) == -2) {
+                    // 3 bytes, 16 bits: 1110xxxx 10xxxxxx 10xxxxxx
+                    if (sp + 1 < sl) {
+                        int b2 = sa[sp++];
+                        int b3 = sa[sp++];
+                        if ((b1 == (byte) 0xe0 && (b2 & 0xe0) == 0x80) //
+                                || (b2 & 0xc0) != 0x80 //
+                                || (b3 & 0xc0) != 0x80) // isMalformed3(b1, b2, b3)
+                            return -1;
+                        char c = (char) ((b1 << 12)
+                                ^ (b2 << 6)
+                                ^ (b3
+                                ^ (((byte) 0xE0 << 12)
+                                ^ ((byte) 0x80 << 6)
+                                ^ ((byte) 0x80 << 0))));
+                        boolean isSurrogate = c >= '\uD800' && c < ('\uDFFF' + 1);
+                        if (isSurrogate)
+                            return -1;
+                        da[dp++] = c;
+                        continue;
                     }
-                    continue;
+                    return -1;
                 }
-                return -1;
-            } else {
+                if ((b1 >> 3) == -2) {
+                    // 4 bytes, 21 bits: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                    if (sp + 2 < sl) {
+                        int b2 = sa[sp++];
+                        int b3 = sa[sp++];
+                        int b4 = sa[sp++];
+                        int uc = (b1 << 18)
+                                ^ (b2 << 12)
+                                ^ (b3 << 6)
+                                ^ (b4
+                                ^ (((byte) 0xF0 << 18)
+                                ^ ((byte) 0x80 << 12)
+                                ^ ((byte) 0x80 << 6)
+                                ^ ((byte) 0x80 << 0)));
+                        if (((b2 & 0xc0) != 0x80 || (b3 & 0xc0) != 0x80 || (b4 & 0xc0) != 0x80)
+                                // shortest form check
+                                || // shortest form check
+                                !(uc >= 0x010000 && uc < 0X10FFFF + 1) // !Character.isSupplementaryCodePoint(uc)
+                        )
+                            return -1;
+                        da[dp++] = (char) ((uc >>> 10) + ('\uD800' - (0x010000 >>> 10))); // Character.highSurrogate(uc);
+                        da[dp++] = (char) ((uc & 0x3ff) + '\uDC00');
+                        continue;
+                    }
+                    return -1;
+                }
                 return -1;
             }
+            // 1 byte, 7 bits: 0xxxxxxx
+            da[dp++] = (char) b1;
         }
         return dp;
     }
@@ -747,28 +776,32 @@ public class IOUtils {
 
         try {
             char[] chars = new char[2048];
-            for (;;) {
-                int len = reader.read(chars, 0, chars.length);
-                if (len < 0) {
-                    break;
-                }
-                buf.append(chars, 0, len);
-            }
-        } catch(Exception ex) {
+            readCharsIntoBuffer(reader, buf, chars);
+        } catch (Exception ex) {
             throw new JSONException("read string from reader error", ex);
         }
 
         return buf.toString();
     }
 
-    public static boolean isValidJsonpQueryParam(String value){
+    private static void readCharsIntoBuffer(Reader reader, StringBuilder buf, char[] chars) throws IOException {
+        for (;;) {
+            int len = reader.read(chars, 0, chars.length);
+            if (len < 0) {
+                break;
+            }
+            buf.append(chars, 0, len);
+        }
+    }
+
+    public static boolean isValidJsonpQueryParam(String value) {
         if (value == null || value.length() == 0) {
             return false;
         }
 
-        for (int i = 0, len = value.length(); i < len; ++i) {
+        for (int i = 0, len = value.length();i < len;++i) {
             char ch = value.charAt(i);
-            if(ch != '.' && !IOUtils.isIdent(ch)){
+            if (ch != '.' && !IOUtils.isIdent(ch)) {
                 return false;
             }
         }

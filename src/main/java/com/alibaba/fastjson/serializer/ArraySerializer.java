@@ -23,10 +23,10 @@ import java.lang.reflect.Type;
  */
 public class ArraySerializer implements ObjectSerializer {
 
-	private final Class<?> componentType;
+    private final Class<?> componentType;
     private final ObjectSerializer compObjectSerializer;
 
-    public ArraySerializer(Class<?> componentType, ObjectSerializer compObjectSerializer){
+    public ArraySerializer(Class<?> componentType, ObjectSerializer compObjectSerializer) {
         this.componentType = componentType;
         this.compObjectSerializer = compObjectSerializer;
     }
@@ -47,29 +47,43 @@ public class ArraySerializer implements ObjectSerializer {
         serializer.setContext(context, object, fieldName, 0);
 
         try {
-            out.append('[');
-            for (int i = 0; i < size; ++i) {
-            	if (i != 0) {
-            		out.append(',');
-            	}
-                Object item = array[i];
-
-                if (item == null) {
-                    if (out.isEnabled(SerializerFeature.WriteNullStringAsEmpty) && object instanceof String[]) {
-                        out.writeString("");
-                    } else {
-                        out.append("null");
-                    }
-                } else if (item.getClass() == componentType) {
-                	compObjectSerializer.write(serializer, item, i, null, 0);
-                } else {
-                	ObjectSerializer itemSerializer = serializer.getObjectWriter(item.getClass());
-                	itemSerializer.write(serializer, item, i, null, 0);
-                }
-            }
-            out.append(']');
+            serializeArray(serializer, object, out, array, size);
         } finally {
             serializer.context = context;
         }
+    }
+
+    private void serializeArray(JSONSerializer serializer, Object object, SerializeWriter out, Object[] array, int size)
+            throws IOException {
+        out.append('[');
+        for (int i = 0;i < size;++i) {
+            serializeArrayItem(serializer, object, out, array, i);
+        }
+        out.append(']');
+    }
+
+    private void serializeArrayItem(JSONSerializer serializer, Object object, SerializeWriter out, Object[] array, int i)
+            throws IOException {
+        if (i != 0) {
+            out.append(',');
+        }
+        Object item = array[i];
+
+        if (item == null) {
+            writeNullOrEmpty(object, out);
+        } else if (item.getClass() == componentType) {
+            compObjectSerializer.write(serializer, item, i, null, 0);
+        } else {
+            ObjectSerializer itemSerializer = serializer.getObjectWriter(item.getClass());
+            itemSerializer.write(serializer, item, i, null, 0);
+        }
+    }
+
+    private void writeNullOrEmpty(Object object, SerializeWriter out) {
+        if (out.isEnabled(SerializerFeature.WriteNullStringAsEmpty) && object instanceof String[]) {
+            out.writeString("");
+            return;
+        }
+        out.append("null");
     }
 }

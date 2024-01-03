@@ -34,20 +34,28 @@ public class GuavaCodec implements ObjectSerializer, ObjectDeserializer {
         }
 
         if (rawType == ArrayListMultimap.class) {
-            ArrayListMultimap multimap = ArrayListMultimap.create();
-            JSONObject object = parser.parseObject();
-            for (Map.Entry entry : object.entrySet()) {
-                Object value = entry.getValue();
-                if (value instanceof Collection) {
-                    multimap.putAll(entry.getKey(), (List) value);
-                } else {
-                    multimap.put(entry.getKey(), value);
-                }
-            }
-
-            return (T) multimap;
+            return parseJsonToMultimap(parser);
         }
         return null;
+    }
+
+    private <T> T parseJsonToMultimap(DefaultJSONParser parser) {
+        ArrayListMultimap multimap = ArrayListMultimap.create();
+        JSONObject object = parser.parseObject();
+        for (Map.Entry entry : object.entrySet()) {
+            putEntryInMultimap(multimap, entry);
+        }
+
+        return (T) multimap;
+    }
+
+    private <T> void putEntryInMultimap(ArrayListMultimap multimap, Map.Entry entry) {
+        Object value = entry.getValue();
+        if (value instanceof Collection) {
+            multimap.putAll(entry.getKey(), (List) value);
+        } else {
+            multimap.put(entry.getKey(), value);
+        }
     }
 
     public int getFastMatchToken() {

@@ -154,8 +154,8 @@ public enum SerializerFeature {
      */
     MapSortField;
 
-    SerializerFeature(){
-        mask = (1 << ordinal());
+    SerializerFeature() {
+        mask = 1 << ordinal();
     }
 
     public final int mask;
@@ -191,7 +191,7 @@ public enum SerializerFeature {
         
         int value = 0;
         
-        for (SerializerFeature feature: features) {
+        for (SerializerFeature feature : features) {
             value |= feature.mask;
         }
         

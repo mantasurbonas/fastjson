@@ -282,66 +282,76 @@ public class FastJsonHttpMessageConverter extends AbstractHttpMessageConverter<O
 
         ByteArrayOutputStream outnew = new ByteArrayOutputStream();
         try {
-            HttpHeaders headers = outputMessage.getHeaders();
-
-            //获取全局配置的filter
-            SerializeFilter[] globalFilters = fastJsonConfig.getSerializeFilters();
-            List<SerializeFilter> allFilters = new ArrayList<SerializeFilter>(Arrays.asList(globalFilters));
-
-            boolean isJsonp = false;
-
-            //不知道为什么会有这行代码， 但是为了保持和原来的行为一致，还是保留下来
-            Object value = strangeCodeForJackson(object);
-
-            if (value instanceof FastJsonContainer) {
-                FastJsonContainer fastJsonContainer = (FastJsonContainer) value;
-                PropertyPreFilters filters = fastJsonContainer.getFilters();
-                allFilters.addAll(filters.getFilters());
-                value = fastJsonContainer.getValue();
-            }
-
-            //revise 2017-10-23 ,
-            // 保持原有的MappingFastJsonValue对象的contentType不做修改 保持旧版兼容。
-            // 但是新的JSONPObject将返回标准的contentType：application/javascript ，不对是否有function进行判断
-            if (value instanceof MappingFastJsonValue) {
-                if (!StringUtils.isEmpty(((MappingFastJsonValue) value).getJsonpFunction())) {
-                    isJsonp = true;
-                }
-            } else if (value instanceof JSONPObject) {
-                isJsonp = true;
-            }
-
-
-            int len = JSON.writeJSONStringWithFastJsonConfig(outnew, //
-                    fastJsonConfig.getCharset(), //
-                    value, //
-                    fastJsonConfig.getSerializeConfig(), //
-                    //fastJsonConfig.getSerializeFilters(), //
-                    allFilters.toArray(new SerializeFilter[allFilters.size()]),
-                    fastJsonConfig.getDateFormat(), //
-                    JSON.DEFAULT_GENERATE_FEATURE, //
-                    fastJsonConfig.getSerializerFeatures());
-
-            if (isJsonp) {
-                headers.setContentType(APPLICATION_JAVASCRIPT);
-            }
-
-            if (fastJsonConfig.isWriteContentLength() && !setLengthError) {
-                try {
-                    headers.setContentLength(len);
-                } catch (UnsupportedOperationException ex) {
-                    // skip
-                    setLengthError = true;
-                }
-            }
-
-            outnew.writeTo(outputMessage.getBody());
+            writeJsonOutput(object, outputMessage, outnew);
 
         } catch (JSONException ex) {
             throw new HttpMessageNotWritableException("Could not write JSON: " + ex.getMessage(), ex);
         } finally {
             outnew.close();
         }
+    }
+
+    private void writeJsonOutput(Object object, HttpOutputMessage outputMessage, ByteArrayOutputStream outnew)
+            throws IOException {
+        HttpHeaders headers = outputMessage.getHeaders();
+
+        //获取全局配置的filter
+		SerializeFilter[] globalFilters = fastJsonConfig.getSerializeFilters();
+        List<SerializeFilter> allFilters = new ArrayList<SerializeFilter>(Arrays.asList(globalFilters));
+
+        boolean isJsonp = false;
+
+        //不知道为什么会有这行代码， 但是为了保持和原来的行为一致，还是保留下来
+		Object value = strangeCodeForJackson(object);
+
+        if (value instanceof FastJsonContainer) {
+            value = addFiltersAndGetValue(allFilters, value);
+        }
+
+        //revise 2017-10-23 ,
+		// 保持原有的MappingFastJsonValue对象的contentType不做修改 保持旧版兼容。
+		// 但是新的JSONPObject将返回标准的contentType：application/javascript ，不对是否有function进行判断
+		if (value instanceof MappingFastJsonValue) {
+            if (!StringUtils.isEmpty(((MappingFastJsonValue) value).getJsonpFunction())) {
+                isJsonp = true;
+            }
+        } else if (value instanceof JSONPObject) {
+            isJsonp = true;
+        }
+
+
+        int len = JSON.writeJSONStringWithFastJsonConfig(outnew, //
+		        fastJsonConfig.getCharset(), //
+		        value, //
+		        fastJsonConfig.getSerializeConfig(), //
+		        //fastJsonConfig.getSerializeFilters(), //
+		        allFilters.toArray(new SerializeFilter[allFilters.size()]),
+                fastJsonConfig.getDateFormat(), //
+		        JSON.DEFAULT_GENERATE_FEATURE, //
+		        fastJsonConfig.getSerializerFeatures());
+
+        if (isJsonp) {
+            headers.setContentType(APPLICATION_JAVASCRIPT);
+        }
+
+        if (fastJsonConfig.isWriteContentLength() && !setLengthError) {
+            try {
+                headers.setContentLength(len);
+            } catch (UnsupportedOperationException ex) {
+                // skip
+		        setLengthError = true;
+            }
+        }
+
+        outnew.writeTo(outputMessage.getBody());
+    }
+
+    private Object addFiltersAndGetValue(List<SerializeFilter> allFilters, Object value) {
+        FastJsonContainer fastJsonContainer = (FastJsonContainer) value;
+        PropertyPreFilters filters = fastJsonContainer.getFilters();
+        allFilters.addAll(filters.getFilters());
+        value = fastJsonContainer.getValue();
+        return value;
     }
 
     private Object strangeCodeForJackson(Object obj) {
@@ -374,14 +384,13 @@ public class FastJsonHttpMessageConverter extends AbstractHttpMessageConverter<O
         Type rawType = type.getRawType();
         Type[] argTypes = type.getActualTypeArguments();
 
-        for(int i = 0; i < argTypes.length; ++i) {
+        for (int i = 0;i < argTypes.length;++i) {
             if (argTypes[i] instanceof ParameterizedType) {
-                argTypes[i] = handlerParameterizedType((ParameterizedType)argTypes[i]);
+                argTypes[i] = handlerParameterizedType((ParameterizedType) argTypes[i]);
             }
         }
 
-        Type key = new ParameterizedTypeImpl(argTypes, ownerType, rawType);
-        return key;
+        return new ParameterizedTypeImpl(argTypes, ownerType, rawType);
     }
 
     private static class Spring4TypeResolvableHelper {
@@ -410,29 +419,44 @@ public class FastJsonHttpMessageConverter extends AbstractHttpMessageConverter<O
                         return resolvedTypeVariable.resolve();
                     }
                 } else if (type instanceof ParameterizedType && resolvedType.hasUnresolvableGenerics()) {
-                    ParameterizedType parameterizedType = (ParameterizedType) type;
-                    Class<?>[] generics = new Class[parameterizedType.getActualTypeArguments().length];
-                    Type[] typeArguments = parameterizedType.getActualTypeArguments();
-
-                    for (int i = 0; i < typeArguments.length; ++i) {
-                        Type typeArgument = typeArguments[i];
-                        if (typeArgument instanceof TypeVariable) {
-                            ResolvableType resolvedTypeArgument = resolveVariable((TypeVariable) typeArgument, ResolvableType.forClass(contextClass));
-                            if (resolvedTypeArgument != ResolvableType.NONE) {
-                                generics[i] = resolvedTypeArgument.resolve();
-                            } else {
-                                generics[i] = ResolvableType.forType(typeArgument).resolve();
-                            }
-                        } else {
-                            generics[i] = ResolvableType.forType(typeArgument).resolve();
-                        }
-                    }
-
-                    return ResolvableType.forClassWithGenerics(resolvedType.getRawClass(), generics).getType();
+                    return resolveParameterizedType(type, contextClass, resolvedType);
                 }
             }
 
             return type;
+        }
+
+
+        private static Type resolveParameterizedType(Type type, Class<?> contextClass, ResolvableType resolvedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            Class<?>[] generics = new Class[parameterizedType.getActualTypeArguments().length];
+            Type[] typeArguments = parameterizedType.getActualTypeArguments();
+
+            for (int i = 0;i < typeArguments.length;++i) {
+                resolveTypeArgument(contextClass, generics, typeArguments, i);
+            }
+
+            return ResolvableType.forClassWithGenerics(resolvedType.getRawClass(), generics).getType();
+        }
+
+
+        private static void resolveTypeArgument(Class<?> contextClass, Class<?>[] generics, Type[] typeArguments, int i) {
+            Type typeArgument = typeArguments[i];
+            if (typeArgument instanceof TypeVariable) {
+                resolveGenericType(contextClass, generics, i, typeArgument);
+            } else {
+                generics[i] = ResolvableType.forType(typeArgument).resolve();
+            }
+        }
+
+
+        private static void resolveGenericType(Class<?> contextClass, Class<?>[] generics, int i, Type typeArgument) {
+            ResolvableType resolvedTypeArgument = resolveVariable((TypeVariable) typeArgument, ResolvableType.forClass(contextClass));
+            if (resolvedTypeArgument != ResolvableType.NONE) {
+                generics[i] = resolvedTypeArgument.resolve();
+            } else {
+                generics[i] = ResolvableType.forType(typeArgument).resolve();
+            }
         }
 
         private static ResolvableType resolveVariable(TypeVariable<?> typeVariable, ResolvableType contextType) {

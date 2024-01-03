@@ -34,7 +34,7 @@ public class UTF8Decoder extends CharsetDecoder {
 
     private final static Charset charset = Charset.forName("UTF-8");
 
-    public UTF8Decoder(){
+    public UTF8Decoder() {
         super(charset, 1.0f, 1.0f);
     }
 
@@ -63,8 +63,10 @@ public class UTF8Decoder extends CharsetDecoder {
     }
 
     private static CoderResult lookupN(ByteBuffer src, int n) {
-        for (int i = 1; i < n; i++) {
-            if (isNotContinuation(src.get())) return CoderResult.malformedForLength(i);
+        for (int i = 1;i < n;i++) {
+            if (isNotContinuation(src.get())) {
+                return CoderResult.malformedForLength(i);
+            }
         }
         return CoderResult.malformedForLength(n);
     }
@@ -75,15 +77,11 @@ public class UTF8Decoder extends CharsetDecoder {
                 int b1 = src.get();
                 if ((b1 >> 2) == -2) {
                     // 5 bytes 111110xx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
-                    if (src.remaining() < 4) return CoderResult.UNDERFLOW;
-                    return lookupN(src, 5);
+                    return checkBufferUnderflow(src);
                 }
                 if ((b1 >> 1) == -2) {
                     // 6 bytes 1111110x 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
-                    if (src.remaining() < 5) {
-                        return CoderResult.UNDERFLOW;
-                    }
-                    return lookupN(src, 6);
+                    return checkBufferCapacity(src);
                 }
                 return CoderResult.malformedForLength(1);
             case 2: // always 1
@@ -91,16 +89,34 @@ public class UTF8Decoder extends CharsetDecoder {
             case 3:
                 b1 = src.get();
                 int b2 = src.get(); // no need to lookup b3
-                return CoderResult.malformedForLength(((b1 == (byte) 0xe0 && (b2 & 0xe0) == 0x80) || isNotContinuation(b2)) ? 1 : 2);
+                return CoderResult.malformedForLength((b1 == (byte) 0xe0 && (b2 & 0xe0) == 0x80) || isNotContinuation(b2) ? 1 : 2);
             case 4: // we don't care the speed here
                 b1 = src.get() & 0xff;
                 b2 = src.get() & 0xff;
-                if (b1 > 0xf4 || (b1 == 0xf0 && (b2 < 0x90 || b2 > 0xbf)) || (b1 == 0xf4 && (b2 & 0xf0) != 0x80) || isNotContinuation(b2)) return CoderResult.malformedForLength(1);
-                if (isNotContinuation(src.get())) return CoderResult.malformedForLength(2);
+                if (b1 > 0xf4 || (b1 == 0xf0 && (b2 < 0x90 || b2 > 0xbf)) || (b1 == 0xf4 && (b2 & 0xf0) != 0x80) || isNotContinuation(b2)) {
+                    return CoderResult.malformedForLength(1);
+                }
+                if (isNotContinuation(src.get())) {
+                    return CoderResult.malformedForLength(2);
+                }
                 return CoderResult.malformedForLength(3);
             default:
                 throw new IllegalStateException();
         }
+    }
+
+    private static CoderResult checkBufferCapacity(ByteBuffer src) {
+        if (src.remaining() < 5) {
+            return CoderResult.UNDERFLOW;
+        }
+        return lookupN(src, 6);
+    }
+
+    private static CoderResult checkBufferUnderflow(ByteBuffer src) {
+        if (src.remaining() < 4) {
+            return CoderResult.UNDERFLOW;
+        }
+        return lookupN(src, 5);
     }
 
     private static CoderResult malformed(ByteBuffer src, int sp, CharBuffer dst, int dp, int nb) {
@@ -114,7 +130,7 @@ public class UTF8Decoder extends CharsetDecoder {
     private static CoderResult xflow(Buffer src, int sp, int sl, Buffer dst, int dp, int nb) {
         src.position(sp);
         dst.position(dp);
-        return (nb == 0 || sl - sp < nb) ? CoderResult.UNDERFLOW : CoderResult.OVERFLOW;
+        return nb == 0 || sl - sp < nb ? CoderResult.UNDERFLOW : CoderResult.OVERFLOW;
     }
 
     private CoderResult decodeArrayLoop(ByteBuffer src, CharBuffer dst) {
@@ -142,7 +158,8 @@ public class UTF8Decoder extends CharsetDecoder {
                 }
                 destArray[destPosition++] = (char) b1;
                 srcPosition++;
-            } else if ((b1 >> 5) == -2) {
+            }
+            else if ((b1 >> 5) == -2) {
                 // 2 bytes, 11 bits: 110xxxxx 10xxxxxx
                 if (srcLength - srcPosition < 2 || destPosition >= destLength) {
                     return xflow(src, srcPosition, srcLength, dst, destPosition, 2);
@@ -153,7 +170,8 @@ public class UTF8Decoder extends CharsetDecoder {
                 }
                 destArray[destPosition++] = (char) (((b1 << 6) ^ b2) ^ 0x0f80);
                 srcPosition += 2;
-            } else if ((b1 >> 4) == -2) {
+            }
+            else if ((b1 >> 4) == -2) {
                 // 3 bytes, 16 bits: 1110xxxx 10xxxxxx 10xxxxxx
                 if (srcLength - srcPosition < 3 || destPosition >= destLength) {
                     return xflow(src, srcPosition, srcLength, dst, destPosition, 3);
@@ -165,7 +183,10 @@ public class UTF8Decoder extends CharsetDecoder {
                 }
                 destArray[destPosition++] = (char) (((b1 << 12) ^ (b2 << 6) ^ b3) ^ 0x1f80);
                 srcPosition += 3;
-            } else if ((b1 >> 3) == -2) {
+            }
+            else{
+                if ((b1 >> 3) != -2)
+                    return malformed(src, srcPosition, dst, destPosition, 1);
                 // 4 bytes, 21 bits: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
                 if (srcLength - srcPosition < 4 || destLength - destPosition < 2) {
                     return xflow(src, srcPosition, srcLength, dst, destPosition, 4);
@@ -180,8 +201,6 @@ public class UTF8Decoder extends CharsetDecoder {
                 destArray[destPosition++] = (char) (0xd800 | (((uc - 0x10000) >> 10) & 0x3ff));
                 destArray[destPosition++] = (char) (0xdc00 | ((uc - 0x10000) & 0x3ff));
                 srcPosition += 4;
-            } else {
-                return malformed(src, srcPosition, dst, destPosition, 1);
             }
         }
         return xflow(src, srcPosition, srcLength, dst, destPosition, 0);

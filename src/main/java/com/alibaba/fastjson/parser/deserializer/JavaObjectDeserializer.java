@@ -20,18 +20,7 @@ public class JavaObjectDeserializer implements ObjectDeserializer {
     @SuppressWarnings("unchecked")
     public <T> T deserialze(DefaultJSONParser parser, Type type, Object fieldName) {
         if (type instanceof GenericArrayType) {
-            Type componentType = ((GenericArrayType) type).getGenericComponentType();
-            if (componentType instanceof TypeVariable) {
-                TypeVariable<?> componentVar = (TypeVariable<?>) componentType;
-                componentType = componentVar.getBounds()[0];
-            }
-
-            List<Object> list = new ArrayList<Object>();
-            parser.parseArray(componentType, list);
-            Class<?> componentClass = TypeUtils.getRawClass(componentType);
-            Object[] array = (Object[]) Array.newInstance(componentClass, list.size());
-            list.toArray(array);
-            return (T) array;
+            return parseJsonArray(parser, type);
         }
         
         if (type instanceof Class
@@ -44,6 +33,21 @@ public class JavaObjectDeserializer implements ObjectDeserializer {
         }
 
         return (T) parser.parse(fieldName);
+    }
+
+    private <T> T parseJsonArray(DefaultJSONParser parser, Type type) {
+        Type componentType = ((GenericArrayType) type).getGenericComponentType();
+        if (componentType instanceof TypeVariable) {
+            TypeVariable<?> componentVar = (TypeVariable<?>) componentType;
+            componentType = componentVar.getBounds()[0];
+        }
+
+        List<Object> list = new ArrayList<Object>();
+        parser.parseArray(componentType, list);
+        Class<?> componentClass = TypeUtils.getRawClass(componentType);
+        Object[] array = (Object[]) Array.newInstance(componentClass, list.size());
+        list.toArray(array);
+        return (T) array;
     }
 
     public int getFastMatchToken() {

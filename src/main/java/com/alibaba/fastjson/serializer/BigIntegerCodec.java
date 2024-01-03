@@ -67,22 +67,26 @@ public class BigIntegerCodec implements ObjectSerializer, ObjectDeserializer {
 
     @SuppressWarnings("unchecked")
     public static <T> T deserialze(DefaultJSONParser parser) {
-        final JSONLexer lexer = parser.lexer;
+        JSONLexer lexer = parser.lexer;
         if (lexer.token() == JSONToken.LITERAL_INT) {
-            String val = lexer.numberString();
-            lexer.nextToken(JSONToken.COMMA);
-
-            if (val.length() > 65535) {
-                throw new JSONException("decimal overflow");
-            }
-
-            return (T) new BigInteger(val);
+            return parseBigInteger(lexer);
         }
 
         Object value = parser.parse();
         return value == null //
             ? null //
             : (T) TypeUtils.castToBigInteger(value);
+    }
+
+    private static <T> T parseBigInteger(JSONLexer lexer) {
+        String val = lexer.numberString();
+        lexer.nextToken(JSONToken.COMMA);
+
+        if (val.length() > 65535) {
+            throw new JSONException("decimal overflow");
+        }
+
+        return (T) new BigInteger(val);
     }
 
     public int getFastMatchToken() {

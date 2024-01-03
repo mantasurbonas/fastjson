@@ -245,8 +245,9 @@ public class FastJsonProvider //
      */
     protected boolean isAssignableFrom(Class<?> type, Class<?>[] classes) {
 
-        if (type == null)
+        if (type == null) {
             return false;
+        }
 
         //  there are some other abstract/interface types to exclude too:
         for (Class<?> cls : classes) {
@@ -266,20 +267,26 @@ public class FastJsonProvider //
      * @return true if valid
      */
     protected boolean isValidType(Class<?> type, Annotation[] classAnnotations) {
-        if (type == null)
-            return false;
-
-        if (clazzes != null) {
-            for (Class<?> cls : clazzes) { // must strictly equal. Don't check
-                // inheritance
-                if (cls == type)
-                    return true;
-            }
-
+        if (type == null) {
             return false;
         }
 
+        if (clazzes != null) {
+            return hasClass(type);
+        }
+
         return true;
+    }
+
+    private boolean hasClass(Class<?> type) {
+        for (Class<?> cls : clazzes) { // must strictly equal. Don't check
+		    // inheritance
+		    if (cls == type) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -292,13 +299,13 @@ public class FastJsonProvider //
         if (mediaType != null) {
             String subtype = mediaType.getSubtype();
 
-            return (("json".equalsIgnoreCase(subtype)) //
+            return ("json".equalsIgnoreCase(subtype)) //
                     || (subtype.endsWith("+json")) //
                     || ("javascript".equals(subtype)) //
                     || ("x-javascript".equals(subtype)) //
                     || ("x-json".equals(subtype)) //
                     || ("x-www-form-urlencoded".equalsIgnoreCase(subtype)) //
-                    || (subtype.endsWith("x-www-form-urlencoded")));
+                    || (subtype.endsWith("x-www-form-urlencoded"));
         }
         return true;
     }
@@ -315,8 +322,9 @@ public class FastJsonProvider //
             return false;
         }
 
-        if (!isAssignableFrom(type, DEFAULT_UNWRITABLES))
+        if (!isAssignableFrom(type, DEFAULT_UNWRITABLES)) {
             return false;
+        }
 
         return isValidType(type, annotations);
     }
@@ -350,14 +358,7 @@ public class FastJsonProvider //
         SerializerFeature[] serializerFeatures = fastJsonConfig.getSerializerFeatures();
 
         if (pretty) {
-            if (serializerFeatures == null)
-                serializerFeatures = new SerializerFeature[]{SerializerFeature.PrettyFormat};
-            else {
-                List<SerializerFeature> featureList = new ArrayList<SerializerFeature>(Arrays.asList(serializerFeatures));
-                featureList.add(SerializerFeature.PrettyFormat);
-                serializerFeatures = featureList.toArray(serializerFeatures);
-            }
-            fastJsonConfig.setSerializerFeatures(serializerFeatures);
+            setSerializerFeatures(fastJsonConfig, serializerFeatures);
         }
 
         try {
@@ -378,6 +379,17 @@ public class FastJsonProvider //
         }
     }
 
+    private void setSerializerFeatures(FastJsonConfig fastJsonConfig, SerializerFeature[] serializerFeatures) {
+        if (serializerFeatures == null) {
+            serializerFeatures = new SerializerFeature[]{SerializerFeature.PrettyFormat};
+        } else {
+            List<SerializerFeature> featureList = new ArrayList<SerializerFeature>(Arrays.asList(serializerFeatures));
+            featureList.add(SerializerFeature.PrettyFormat);
+            serializerFeatures = featureList.toArray(serializerFeatures);
+        }
+        fastJsonConfig.setSerializerFeatures(serializerFeatures);
+    }
+
     /**
      * Method that JAX-RS container calls to try to check whether values of
      * given type (and media type) can be deserialized by this provider.
@@ -391,8 +403,9 @@ public class FastJsonProvider //
             return false;
         }
 
-        if (!isAssignableFrom(type, DEFAULT_UNREADABLES))
+        if (!isAssignableFrom(type, DEFAULT_UNREADABLES)) {
             return false;
+        }
 
         return isValidType(type, annotations);
     }
@@ -431,12 +444,7 @@ public class FastJsonProvider //
 
         if (providers != null) {
 
-            ContextResolver<FastJsonConfig> resolver = providers.getContextResolver(FastJsonConfig.class, mediaType);
-
-            if (resolver == null) {
-
-                resolver = providers.getContextResolver(FastJsonConfig.class, null);
-            }
+            ContextResolver<FastJsonConfig> resolver = getFastJsonConfigResolver(mediaType);
 
             if (resolver != null) {
 
@@ -445,6 +453,16 @@ public class FastJsonProvider //
         }
 
         return fastJsonConfig;
+    }
+
+    private ContextResolver<FastJsonConfig> getFastJsonConfigResolver(MediaType mediaType) {
+        ContextResolver<FastJsonConfig> resolver = providers.getContextResolver(FastJsonConfig.class, mediaType);
+
+        if (resolver == null) {
+
+            resolver = providers.getContextResolver(FastJsonConfig.class, null);
+        }
+        return resolver;
     }
 
 }

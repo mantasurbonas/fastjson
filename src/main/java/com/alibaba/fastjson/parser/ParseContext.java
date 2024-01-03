@@ -11,7 +11,7 @@ public class ParseContext {
     public Type               type;
     private transient String  path;
 
-    public ParseContext(ParseContext parent, Object object, Object fieldName){
+    public ParseContext(ParseContext parent, Object object, Object fieldName) {
         this.parent = parent;
         this.object = object;
         this.fieldName = fieldName;
@@ -20,17 +20,25 @@ public class ParseContext {
 
     public String toString() {
         if (path == null) {
-            if (parent == null) {
-                path = "$";
-            } else {
-                if (fieldName instanceof Integer) {
-                    path = parent.toString() + "[" + fieldName + "]";
-                } else {
-                    path = parent.toString() + "." + fieldName;
-                }
-            }
+            setPath();
         }
 
         return path;
+    }
+
+    private void setPath() {
+        if (parent == null) {
+            path = "$";
+            return;
+        }
+        generatePath();
+    }
+
+    private void generatePath() {
+        if (fieldName instanceof Integer) {
+            path = parent.toString() + "[" + fieldName + "]";
+            return;
+        }
+        path = parent.toString() + "." + fieldName;
     }
 }

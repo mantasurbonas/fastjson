@@ -25,23 +25,28 @@ public class ArrayListTypeFieldDeserializer extends FieldDeserializer {
     private int                itemFastMatchToken;
     private ObjectDeserializer deserializer;
 
-    public ArrayListTypeFieldDeserializer(ParserConfig mapping, Class<?> clazz, FieldInfo fieldInfo){
+    public ArrayListTypeFieldDeserializer(ParserConfig mapping, Class<?> clazz, FieldInfo fieldInfo) {
         super(clazz, fieldInfo);
 
         Type fieldType = fieldInfo.fieldType;
         if (fieldType instanceof ParameterizedType) {
             Type argType = ((ParameterizedType) fieldInfo.fieldType).getActualTypeArguments()[0];
             if (argType instanceof WildcardType) {
-                WildcardType wildcardType = (WildcardType) argType;
-                Type[] upperBounds = wildcardType.getUpperBounds();
-                if (upperBounds.length == 1) {
-                    argType = upperBounds[0];
-                }
+                argType = getWildcardUpperBound(argType);
             }
             this.itemType = argType;
         } else {
             this.itemType = Object.class;
         }
+    }
+
+    private Type getWildcardUpperBound(Type argType) {
+        WildcardType wildcardType = (WildcardType) argType;
+        Type[] upperBounds = wildcardType.getUpperBounds();
+        if (upperBounds.length == 1) {
+            argType = upperBounds[0];
+        }
+        return argType;
     }
 
     public int getFastMatchToken() {
@@ -52,7 +57,7 @@ public class ArrayListTypeFieldDeserializer extends FieldDeserializer {
     @Override
     public void parseField(DefaultJSONParser parser, Object object, Type objectType, Map<String, Object> fieldValues) {
         JSONLexer lexer = parser.lexer;
-        final int token = lexer.token();
+        int token = lexer.token();
         if (token == JSONToken.NULL
                 || (token == JSONToken.LITERAL_STRING && lexer.stringVal().length() == 0)) {
             if (object == null) {
@@ -78,7 +83,7 @@ public class ArrayListTypeFieldDeserializer extends FieldDeserializer {
         }
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public final void parseArray(DefaultJSONParser parser, Type objectType, Collection array) {
         Type itemType = this.itemType;
         ObjectDeserializer itemTypeDeser = this.deserializer;
@@ -95,13 +100,7 @@ public class ArrayListTypeFieldDeserializer extends FieldDeserializer {
 
                 int paramIndex = -1;
                 if (objectClass != null) {
-                    for (int i = 0, size = objectClass.getTypeParameters().length; i < size; ++i) {
-                        TypeVariable item = objectClass.getTypeParameters()[i];
-                        if (item.getName().equals(typeVar.getName())) {
-                            paramIndex = i;
-                            break;
-                        }
-                    }
+                    paramIndex = findTypeParameterIndex_(typeVar, objectClass, paramIndex);
                 }
 
                 if (paramIndex != -1) {
@@ -111,101 +110,149 @@ public class ArrayListTypeFieldDeserializer extends FieldDeserializer {
                     }
                 }
             } else if (itemType instanceof ParameterizedType) {
-                ParameterizedType parameterizedItemType = (ParameterizedType) itemType;
-                Type[] itemActualTypeArgs = parameterizedItemType.getActualTypeArguments();
-                if (itemActualTypeArgs.length == 1 && itemActualTypeArgs[0] instanceof TypeVariable) {
-                    TypeVariable typeVar = (TypeVariable) itemActualTypeArgs[0];
-                    ParameterizedType paramType = (ParameterizedType) objectType;
-
-                    Class<?> objectClass = null;
-                    if (paramType.getRawType() instanceof Class) {
-                        objectClass = (Class<?>) paramType.getRawType();
-                    }
-
-                    int paramIndex = -1;
-                    if (objectClass != null) {
-                        for (int i = 0, size = objectClass.getTypeParameters().length; i < size; ++i) {
-                            TypeVariable item = objectClass.getTypeParameters()[i];
-                            if (item.getName().equals(typeVar.getName())) {
-                                paramIndex = i;
-                                break;
-                            }
-                        }
-
-                    }
-
-                    if (paramIndex != -1) {
-                        itemActualTypeArgs[0] = paramType.getActualTypeArguments()[paramIndex];
-                        itemType = TypeReference.intern(
-                                new ParameterizedTypeImpl(itemActualTypeArgs, parameterizedItemType.getOwnerType(), parameterizedItemType.getRawType())
-                        );
-                    }
-                }
+                itemType = resolveParameterizedItemType(objectType, itemType);
             }
         } else if (itemType instanceof TypeVariable && objectType instanceof Class) {
-            Class objectClass = (Class) objectType;
-            TypeVariable typeVar = (TypeVariable) itemType;
-            objectClass.getTypeParameters();
-
-            for (int i = 0, size = objectClass.getTypeParameters().length; i < size; ++i) {
-                TypeVariable item = objectClass.getTypeParameters()[i];
-                if (item.getName().equals(typeVar.getName())) {
-                    Type[] bounds = item.getBounds();
-                    if (bounds.length == 1) {
-                        itemType = bounds[0];
-                    }
-                    break;
-                }
-            }
+            itemType = resolveObjectType(objectType, itemType);
         }
 
-        final JSONLexer lexer = parser.lexer;
+        JSONLexer lexer = parser.lexer;
 
-        final int token = lexer.token();
+        int token = lexer.token();
         if (token == JSONToken.LBRACKET) {
-            if (itemTypeDeser == null) {
-                itemTypeDeser = deserializer = parser.getConfig().getDeserializer(itemType);
-                itemFastMatchToken = deserializer.getFastMatchToken();
-            }
+            parseJSONCollection(parser, array, itemType, itemTypeDeser, lexer);
+        } else if (token == JSONToken.LITERAL_STRING && fieldInfo.unwrapped) {
+            parseJsonArray(array, lexer);
+        } else {
+            deserializeAndAddValue(parser, array, itemType, itemTypeDeser);
+        }
+    }
 
-            lexer.nextToken(itemFastMatchToken);
+    private Type resolveParameterizedItemType(Type objectType, Type itemType) {
+        ParameterizedType parameterizedItemType = (ParameterizedType) itemType;
+        Type[] itemActualTypeArgs = parameterizedItemType.getActualTypeArguments();
+        if (itemActualTypeArgs.length == 1 && itemActualTypeArgs[0] instanceof TypeVariable) {
+            itemType = resolveItemType(objectType, itemType, parameterizedItemType, itemActualTypeArgs);
+        }
+        return itemType;
+    }
 
-            for (int i = 0; ; ++i) {
-                if (lexer.isEnabled(Feature.AllowArbitraryCommas)) {
-                    while (lexer.token() == JSONToken.COMMA) {
-                        lexer.nextToken();
-                        continue;
-                    }
-                }
+    private void parseJSONCollection(DefaultJSONParser parser, Collection array, Type itemType, ObjectDeserializer itemTypeDeser,
+            JSONLexer lexer) {
+        if (itemTypeDeser == null) {
+            itemTypeDeser = deserializer = parser.getConfig().getDeserializer(itemType);
+            itemFastMatchToken = deserializer.getFastMatchToken();
+        }
 
-                if (lexer.token() == JSONToken.RBRACKET) {
-                    break;
-                }
+        lexer.nextToken(itemFastMatchToken);
 
-                Object val = itemTypeDeser.deserialze(parser, itemType, i);
-                array.add(val);
+        parseCollection(parser, array, itemType, itemTypeDeser, lexer);
 
-                parser.checkListResolve(array);
+        lexer.nextToken(JSONToken.COMMA);
+    }
 
-                if (lexer.token() == JSONToken.COMMA) {
-                    lexer.nextToken(itemFastMatchToken);
+    private Type resolveObjectType(Type objectType, Type itemType) {
+        Class objectClass = (Class) objectType;
+        TypeVariable typeVar = (TypeVariable) itemType;
+        objectClass.getTypeParameters();
+
+        itemType = resolveTypeVariable(itemType, objectClass, typeVar);
+        return itemType;
+    }
+
+    private Type resolveItemType(Type objectType, Type itemType, ParameterizedType parameterizedItemType,
+            Type[] itemActualTypeArgs) {
+        TypeVariable typeVar = (TypeVariable) itemActualTypeArgs[0];
+        ParameterizedType paramType = (ParameterizedType) objectType;
+
+        Class<?> objectClass = null;
+        if (paramType.getRawType() instanceof Class) {
+            objectClass = (Class<?>) paramType.getRawType();
+        }
+
+        int paramIndex = -1;
+        if (objectClass != null) {
+            paramIndex = findTypeParameterIndex_(typeVar, objectClass, paramIndex);
+
+        }
+
+        if (paramIndex != -1) {
+            itemActualTypeArgs[0] = paramType.getActualTypeArguments()[paramIndex];
+            itemType = TypeReference.intern(
+                    new ParameterizedTypeImpl(itemActualTypeArgs, parameterizedItemType.getOwnerType(), parameterizedItemType.getRawType())
+            );
+        }
+        return itemType;
+    }
+
+    private void deserializeAndAddValue(DefaultJSONParser parser, Collection array, Type itemType,
+            ObjectDeserializer itemTypeDeser) {
+        if (itemTypeDeser == null) {
+            itemTypeDeser = deserializer = parser.getConfig().getDeserializer(itemType);
+        }
+        Object val = itemTypeDeser.deserialze(parser, itemType, 0);
+        addValueAndResolve(parser, array, val);
+    }
+
+    private void parseJsonArray(Collection array, JSONLexer lexer) {
+        String str = lexer.stringVal();
+        lexer.nextToken();
+        DefaultJSONParser valueParser = new DefaultJSONParser(str);
+        valueParser.parseArray(array);
+    }
+
+    private void parseCollection(DefaultJSONParser parser, Collection array, Type itemType, ObjectDeserializer itemTypeDeser,
+            JSONLexer lexer) {
+        for (int i = 0;;++i) {
+            if (lexer.isEnabled(Feature.AllowArbitraryCommas)) {
+                while (lexer.token() == JSONToken.COMMA) {
+                    lexer.nextToken();
                     continue;
                 }
             }
 
-            lexer.nextToken(JSONToken.COMMA);
-        } else if (token == JSONToken.LITERAL_STRING && fieldInfo.unwrapped) {
-            String str = lexer.stringVal();
-            lexer.nextToken();
-            DefaultJSONParser valueParser = new DefaultJSONParser(str);
-            valueParser.parseArray(array);
-        } else {
-            if (itemTypeDeser == null) {
-                itemTypeDeser = deserializer = parser.getConfig().getDeserializer(itemType);
+            if (lexer.token() == JSONToken.RBRACKET) {
+                break;
             }
-            Object val = itemTypeDeser.deserialze(parser, itemType, 0);
-            array.add(val);
-            parser.checkListResolve(array);
+
+            Object val = itemTypeDeser.deserialze(parser, itemType, i);
+            addValueAndResolve(parser, array, val);
+
+            if (lexer.token() == JSONToken.COMMA) {
+                lexer.nextToken(itemFastMatchToken);
+                continue;
+            }
         }
+    }
+
+    private Type resolveTypeVariable(Type itemType, Class objectClass, TypeVariable typeVar) {
+        for (int i = 0, size = objectClass.getTypeParameters().length;i < size;++i) {
+            TypeVariable item = objectClass.getTypeParameters()[i];
+            if (item.getName().equals(typeVar.getName())) {
+                Type[] bounds = item.getBounds();
+                if (bounds.length == 1) {
+                    itemType = bounds[0];
+                }
+                break;
+            }
+        }
+        return itemType;
+    }
+
+    private int findTypeParameterIndex_(TypeVariable typeVar, Class<?> objectClass, int paramIndex) {
+        for (int i = 0, size = objectClass.getTypeParameters().length;i < size;++i) {
+            TypeVariable item = objectClass.getTypeParameters()[i];
+            if (item.getName().equals(typeVar.getName())) {
+                paramIndex = i;
+                break;
+            }
+        }
+        return paramIndex;
+    }
+
+    private void addValueAndResolve(DefaultJSONParser parser, Collection array, Object val) {
+        array.add(val);
+
+        parser.checkListResolve(array);
     }
 }

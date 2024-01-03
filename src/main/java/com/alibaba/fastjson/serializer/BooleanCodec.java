@@ -51,7 +51,7 @@ public class BooleanCodec implements ObjectSerializer, ObjectDeserializer {
 
     @SuppressWarnings("unchecked")
     public <T> T deserialze(DefaultJSONParser parser, Type clazz, Object fieldName) {
-        final JSONLexer lexer = parser.lexer;
+        JSONLexer lexer = parser.lexer;
 
         Boolean boolObj;
 
@@ -63,14 +63,7 @@ public class BooleanCodec implements ObjectSerializer, ObjectDeserializer {
                 lexer.nextToken(JSONToken.COMMA);
                 boolObj = Boolean.FALSE;
             } else if (lexer.token() == JSONToken.LITERAL_INT) {
-                int intValue = lexer.intValue();
-                lexer.nextToken(JSONToken.COMMA);
-
-                if (intValue == 1) {
-                    boolObj = Boolean.TRUE;
-                } else {
-                    boolObj = Boolean.FALSE;
-                }
+                boolObj = parseBooleanValue(lexer);
             } else {
                 Object value = parser.parse();
 
@@ -89,6 +82,19 @@ public class BooleanCodec implements ObjectSerializer, ObjectDeserializer {
         }
 
         return (T) boolObj;
+    }
+
+    private <T> Boolean parseBooleanValue(JSONLexer lexer) {
+        Boolean boolObj;
+        int intValue = lexer.intValue();
+        lexer.nextToken(JSONToken.COMMA);
+
+        if (intValue == 1) {
+            boolObj = Boolean.TRUE;
+        } else {
+            boolObj = Boolean.FALSE;
+        }
+        return boolObj;
     }
 
     public int getFastMatchToken() {

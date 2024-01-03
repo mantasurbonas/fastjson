@@ -27,7 +27,7 @@ import com.alibaba.fastjson.serializer.SerializerFeature;
  * @author wenshao[szujobs@hotmail.com]
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER })
+@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
 public @interface JSONField {
     /**
      * config encode/decode ordinal
@@ -80,7 +80,7 @@ public @interface JSONField {
      */
     boolean unwrapped() default false;
     
-	/**
+    /**
 	 * Only support Object
 	 * 
 	 * @since 1.2.61

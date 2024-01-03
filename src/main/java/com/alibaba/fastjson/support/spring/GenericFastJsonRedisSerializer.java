@@ -14,7 +14,9 @@ import org.springframework.data.redis.serializer.SerializationException;
  */
 public class GenericFastJsonRedisSerializer implements RedisSerializer<Object> {
     private final static ParserConfig defaultRedisConfig = new ParserConfig();
-    static { defaultRedisConfig.setAutoTypeSupport(true);}
+    static {
+ defaultRedisConfig.setAutoTypeSupport(true);
+}
 
     public byte[] serialize(Object object) throws SerializationException {
         if (object == null) {

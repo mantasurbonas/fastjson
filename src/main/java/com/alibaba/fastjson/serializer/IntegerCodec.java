@@ -52,20 +52,24 @@ public class IntegerCodec implements ObjectSerializer, ObjectDeserializer {
         }
         
         if (out.isEnabled(SerializerFeature.WriteClassName)) {
-            Class<?> clazz = value.getClass();
-            if (clazz == Byte.class) {
-                out.write('B');
-            } else if (clazz == Short.class) {
-                out.write('S');
-            }
+            writeNumberType(out, value);
+        }
+    }
+
+    private void writeNumberType(SerializeWriter out, Number value) {
+        Class<?> clazz = value.getClass();
+        if (clazz == Byte.class) {
+            out.write('B');
+        } else if (clazz == Short.class) {
+            out.write('S');
         }
     }
     
     @SuppressWarnings("unchecked")
     public <T> T deserialze(DefaultJSONParser parser, Type clazz, Object fieldName) {
-        final JSONLexer lexer = parser.lexer;
+        JSONLexer lexer = parser.lexer;
 
-        final int token = lexer.token();
+        int token = lexer.token();
 
         if (token == JSONToken.NULL) {
             lexer.nextToken(JSONToken.COMMA);
@@ -75,28 +79,11 @@ public class IntegerCodec implements ObjectSerializer, ObjectDeserializer {
 
         Integer intObj;
         try {
-            if (token == JSONToken.LITERAL_INT) {
-                int val = lexer.intValue();
-                lexer.nextToken(JSONToken.COMMA);
-                intObj = Integer.valueOf(val);
-            } else if (token == JSONToken.LITERAL_FLOAT) {
-                BigDecimal number = lexer.decimalValue();
-                intObj = TypeUtils.intValue(number);
-                lexer.nextToken(JSONToken.COMMA);
-            } else {
-                if (token == JSONToken.LBRACE) {
-                    JSONObject jsonObject = new JSONObject(true);
-                    parser.parseObject(jsonObject);
-                    intObj = TypeUtils.castToInt(jsonObject);
-                } else {
-                    Object value = parser.parse();
-                    intObj = TypeUtils.castToInt(value);
-                }
-            }
+            intObj = parseTokenToInt(parser, lexer, token);
         } catch (Exception ex) {
             String message = "parseInt error";
             if (fieldName != null) {
-                message += (", field : " + fieldName);
+                message += ", field : " + fieldName;
             }
             throw new JSONException(message, ex);
         }
@@ -107,6 +94,35 @@ public class IntegerCodec implements ObjectSerializer, ObjectDeserializer {
         }
         
         return (T) intObj;
+    }
+
+    private <T> Integer parseTokenToInt(DefaultJSONParser parser, JSONLexer lexer, int token) {
+        Integer intObj;
+        if (token == JSONToken.LITERAL_INT) {
+            int val = lexer.intValue();
+            lexer.nextToken(JSONToken.COMMA);
+            intObj = Integer.valueOf(val);
+        } else if (token == JSONToken.LITERAL_FLOAT) {
+            BigDecimal number = lexer.decimalValue();
+            intObj = TypeUtils.intValue(number);
+            lexer.nextToken(JSONToken.COMMA);
+        } else {
+            intObj = parseJsonToInt(parser, token);
+        }
+        return intObj;
+    }
+
+    private <T> Integer parseJsonToInt(DefaultJSONParser parser, int token) {
+        Integer intObj;
+        if (token == JSONToken.LBRACE) {
+            JSONObject jsonObject = new JSONObject(true);
+            parser.parseObject(jsonObject);
+            intObj = TypeUtils.castToInt(jsonObject);
+        } else {
+            Object value = parser.parse();
+            intObj = TypeUtils.castToInt(value);
+        }
+        return intObj;
     }
 
     public int getFastMatchToken() {

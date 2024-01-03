@@ -16,7 +16,7 @@ public class JSONPatch {
     public static Object apply(Object object, String patch) {
         Operation[] operations;
         if (isObject(patch)) {
-            operations = new Operation[] {
+            operations = new Operation[]{
                     JSON.parseObject(patch, Operation.class)};
         } else {
             operations = JSON.parseObject(patch, Operation[].class);
@@ -36,15 +36,7 @@ public class JSONPatch {
                     break;
                 case copy:
                 case move:
-                    JSONPath from = JSONPath.compile(op.from);
-                    Object fromValue = from.eval(object);
-                    if (op.type == OperationType.move) {
-                        boolean success = from.remove(object);
-                        if (!success) {
-                            throw new JSONException("json patch move error : " + op.from + " -> " + op.path);
-                        }
-                    }
-                    path.set(object, fromValue);
+                moveJsonValue(object, op, path);
                     break;
                 case test:
                     Object result = path.eval(object);
@@ -60,12 +52,28 @@ public class JSONPatch {
         return object;
     }
 
+    private static void moveJsonValue(Object object, Operation op, JSONPath path) {
+        JSONPath from = JSONPath.compile(op.from);
+        Object fromValue = from.eval(object);
+        if (op.type == OperationType.move) {
+            removeJsonPath(object, op, from);
+        }
+        path.set(object, fromValue);
+    }
+
+    private static void removeJsonPath(Object object, Operation op, JSONPath from) {
+        boolean success = from.remove(object);
+        if (!success) {
+            throw new JSONException("json patch move error : " + op.from + " -> " + op.path);
+        }
+    }
+
     private static boolean isObject(String patch) {
         if (patch == null) {
             return false;
         }
 
-        for (int i = 0; i < patch.length(); ++i) {
+        for (int i = 0;i < patch.length();++i) {
             char ch = patch.charAt(i);
             if (JSONScanner.isWhitespace(ch)) {
                 continue;

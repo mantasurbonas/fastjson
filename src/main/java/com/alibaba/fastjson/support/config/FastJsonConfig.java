@@ -88,7 +88,7 @@ public class FastJsonConfig {
         this.serializeConfig = SerializeConfig.getGlobalInstance();
         this.parserConfig = ParserConfig.getGlobalInstance();
 
-        this.serializerFeatures = new SerializerFeature[] {
+        this.serializerFeatures = new SerializerFeature[]{
                 SerializerFeature.BrowserSecure
         };
 
@@ -181,8 +181,9 @@ public class FastJsonConfig {
     public void setClassSerializeFilters(
             Map<Class<?>, SerializeFilter> classSerializeFilters) {
 
-        if (classSerializeFilters == null)
+        if (classSerializeFilters == null) {
             return;
+        }
 
         for (Entry<Class<?>, SerializeFilter> entry : classSerializeFilters.entrySet())
 

@@ -59,43 +59,14 @@ public final class ListSerializer implements ObjectSerializer {
         ObjectSerializer itemSerializer = null;
         try {
             if (out.isEnabled(SerializerFeature.PrettyFormat)) {
-                out.append('[');
-                serializer.incrementIndent();
-
-                int i = 0;
-                for (Object item : list) {
-                    if (i != 0) {
-                        out.append(',');
-                    }
-
-                    serializer.println();
-                    if (item != null) {
-                        if (serializer.containsReference(item)) {
-                            serializer.writeReference(item);
-                        } else {
-                            itemSerializer = serializer.getObjectWriter(item.getClass());
-                            SerialContext itemContext = new SerialContext(context, object, fieldName, 0, 0);
-                            serializer.context = itemContext;
-                            itemSerializer.write(serializer, item, i, elementType, features);
-                        }
-                    } else {
-                        serializer.out.writeNull();
-                    }
-                    i++;
-                }
-
-                serializer.decrementIdent();
-                serializer.println();
-                out.append(']');
+                serializeListItems(serializer, object, fieldName, features, out, elementType, list, context);
                 return;
             }
 
             out.append('[');
-            for (int i = 0, size = list.size(); i < size; ++i) {
+            for (int i = 0, size = list.size();i < size;++i) {
                 Object item = list.get(i);
-                if (i != 0) {
-                    out.append(',');
-                }
+                appendComma(out, i);
                 
                 if (item == null) {
                     out.append("null");
@@ -105,35 +76,20 @@ public final class ListSerializer implements ObjectSerializer {
                     if (clazz == Integer.class) {
                         out.writeInt(((Integer) item).intValue());
                     } else if (clazz == Long.class) {
-                        long val = ((Long) item).longValue();
-                        if (writeClassName) {
-                            out.writeLong(val);
-                            out.write('L');
-                        } else {
-                            out.writeLong(val);
-                        }
+                        writeLongValue(writeClassName, out, item);
                     } else {
-                        if ((SerializerFeature.DisableCircularReferenceDetect.mask & features) != 0){
+                        if ((SerializerFeature.DisableCircularReferenceDetect.mask & features) != 0) {
                             itemSerializer = serializer.getObjectWriter(item.getClass());
                             itemSerializer.write(serializer, item, i, elementType, features);
-                        }else {
+                        } else {
                             if (!out.disableCircularReferenceDetect) {
-                                SerialContext itemContext = new SerialContext(context, object, fieldName, 0, 0);
-                                serializer.context = itemContext;
+                                setSerializationContext(serializer, object, fieldName, context);
                             }
 
                             if (serializer.containsReference(item)) {
                                 serializer.writeReference(item);
                             } else {
-                                itemSerializer = serializer.getObjectWriter(item.getClass());
-                                if ((SerializerFeature.WriteClassName.mask & features) != 0
-                                        && itemSerializer instanceof JavaBeanSerializer)
-                                {
-                                    JavaBeanSerializer javaBeanSerializer = (JavaBeanSerializer) itemSerializer;
-                                    javaBeanSerializer.writeNoneASM(serializer, item, i, elementType, features);
-                                } else {
-                                    itemSerializer.write(serializer, item, i, elementType, features);
-                                }
+                                serializeObject(serializer, features, elementType, i, item);
                             }
                         }
                     }
@@ -142,6 +98,76 @@ public final class ListSerializer implements ObjectSerializer {
             out.append(']');
         } finally {
             serializer.context = context;
+        }
+    }
+
+    private void serializeListItems(JSONSerializer serializer, Object object, Object fieldName, int features, SerializeWriter out,
+            Type elementType, List<?> list, SerialContext context) throws IOException {
+        out.append('[');
+        serializer.incrementIndent();
+
+        int i = 0;
+        for (Object item : list) {
+            appendComma(out, i);
+
+            serializer.println();
+            if (item != null) {
+                serializeItem(serializer, object, fieldName, features, elementType, context, i, item);
+            } else {
+                serializer.out.writeNull();
+            }
+            i++;
+        }
+
+        serializer.decrementIdent();
+        serializer.println();
+        out.append(']');
+    }
+
+    private void serializeObject(JSONSerializer serializer, int features, Type elementType, int i, Object item)
+            throws IOException {
+        ObjectSerializer itemSerializer;
+        itemSerializer = serializer.getObjectWriter(item.getClass());
+        if ((SerializerFeature.WriteClassName.mask & features) != 0
+                && itemSerializer instanceof JavaBeanSerializer)
+        {
+            JavaBeanSerializer javaBeanSerializer = (JavaBeanSerializer) itemSerializer;
+            javaBeanSerializer.writeNoneASM(serializer, item, i, elementType, features);
+        } else {
+            itemSerializer.write(serializer, item, i, elementType, features);
+        }
+    }
+
+    private void writeLongValue(boolean writeClassName, SerializeWriter out, Object item) {
+        long val = ((Long) item).longValue();
+        if (writeClassName) {
+            out.writeLong(val);
+            out.write('L');
+        } else {
+            out.writeLong(val);
+        }
+    }
+
+    private void serializeItem(JSONSerializer serializer, Object object, Object fieldName, int features, Type elementType,
+            SerialContext context, int i, Object item) throws IOException {
+        ObjectSerializer itemSerializer;
+        if (serializer.containsReference(item)) {
+            serializer.writeReference(item);
+        } else {
+            itemSerializer = serializer.getObjectWriter(item.getClass());
+            setSerializationContext(serializer, object, fieldName, context);
+            itemSerializer.write(serializer, item, i, elementType, features);
+        }
+    }
+
+    private void setSerializationContext(JSONSerializer serializer, Object object, Object fieldName, SerialContext context) {
+        SerialContext itemContext = new SerialContext(context, object, fieldName, 0, 0);
+        serializer.context = itemContext;
+    }
+
+    private void appendComma(SerializeWriter out, int i) {
+        if (i != 0) {
+            out.append(',');
         }
     }
 

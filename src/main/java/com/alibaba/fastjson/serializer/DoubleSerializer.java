@@ -24,19 +24,19 @@ import java.text.DecimalFormat;
  */
 public class DoubleSerializer implements ObjectSerializer {
 
-    public final static DoubleSerializer instance      = new DoubleSerializer();
+    public final static DoubleSerializer instance = new DoubleSerializer();
 
     private DecimalFormat                decimalFormat = null;
 
-    public DoubleSerializer(){
+    public DoubleSerializer() {
 
     }
 
-    public DoubleSerializer(DecimalFormat decimalFormat){
+    public DoubleSerializer(DecimalFormat decimalFormat) {
         this.decimalFormat = decimalFormat;
     }
 
-    public DoubleSerializer(String decimalFormat){
+    public DoubleSerializer(String decimalFormat) {
         this(new DecimalFormat(decimalFormat));
     }
 
@@ -54,12 +54,16 @@ public class DoubleSerializer implements ObjectSerializer {
                 || Double.isInfinite(doubleValue)) {
             out.writeNull();
         } else {
-            if (decimalFormat == null) {
-                out.writeDouble(doubleValue, true);
-            } else {
-                String doubleText = decimalFormat.format(doubleValue);
-                out.write(doubleText);
-            }
+            writeFormattedDouble(out, doubleValue);
         }
+    }
+
+    private void writeFormattedDouble(SerializeWriter out, double doubleValue) {
+        if (decimalFormat == null) {
+            out.writeDouble(doubleValue, true);
+            return;
+        }
+        String doubleText = decimalFormat.format(doubleValue);
+        out.write(doubleText);
     }
 }

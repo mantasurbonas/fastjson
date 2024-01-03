@@ -37,7 +37,7 @@ public class JSONSerializer extends SerializeFilterable {
     public final SerializeWriter                     out;
 
     private int                                      indentCount = 0;
-    private String                                   indent      = "\t";
+    private String                                   indent = "\t";
 
     /**
      * #1868 为了区分全局配置（FastJsonConfig）的日期格式配置以及toJSONString传入的日期格式配置
@@ -50,25 +50,25 @@ public class JSONSerializer extends SerializeFilterable {
 
     private String                                   fastJsonConfigDateFormatPattern;
 
-    protected IdentityHashMap<Object, SerialContext> references  = null;
+    protected IdentityHashMap<Object, SerialContext> references = null;
     protected SerialContext                          context;
 
-    protected TimeZone                               timeZone    = JSON.defaultTimeZone;
-    protected Locale                                 locale      = JSON.defaultLocale;
+    protected TimeZone                               timeZone = JSON.defaultTimeZone;
+    protected Locale                                 locale = JSON.defaultLocale;
 
-    public JSONSerializer(){
+    public JSONSerializer() {
         this(new SerializeWriter(), SerializeConfig.getGlobalInstance());
     }
 
-    public JSONSerializer(SerializeWriter out){
+    public JSONSerializer(SerializeWriter out) {
         this(out, SerializeConfig.getGlobalInstance());
     }
 
-    public JSONSerializer(SerializeConfig config){
+    public JSONSerializer(SerializeConfig config) {
         this(new SerializeWriter(), config);
     }
 
-    public JSONSerializer(SerializeWriter out, SerializeConfig config){
+    public JSONSerializer(SerializeWriter out, SerializeConfig config) {
         this.out = out;
         this.config = config;
     }
@@ -83,7 +83,7 @@ public class JSONSerializer extends SerializeFilterable {
     public DateFormat getDateFormat() {
         if (dateFormat == null) {
             if (dateFormatPattern != null) {
-                dateFormat = this.generateDateFormat( dateFormatPattern );
+                dateFormat = this.generateDateFormat(dateFormatPattern);
             }
         }
 
@@ -203,21 +203,45 @@ public class JSONSerializer extends SerializeFilterable {
         }
 
         SerialContext rootContext = context;
+        rootContext = findRootContext(rootContext);
+
+        if (object == rootContext.object) {
+            out.write("{\"$ref\":\"$\"}");
+        } else {
+            writeReferencePath(object);
+        }
+    }
+
+    private void writeReferencePath(Object object) {
+        out.write("{\"$ref\":\"");
+        String path = references.get(object).toString();
+        out.write(path);
+        out.write("\"}");
+    }
+
+    private SerialContext findRootContext(SerialContext rootContext) {
+        rootContext = getRootElement(rootContext);
+        return rootContext;
+    }
+
+    private SerialContext getRootElement(SerialContext rootContext) {
+        rootContext = getRootContext(rootContext);
+        return rootContext;
+    }
+
+    private SerialContext getRootContext(SerialContext rootContext) {
+        rootContext = getRootContext_(rootContext);
+        return rootContext;
+    }
+
+    private SerialContext getRootContext_(SerialContext rootContext) {
         for (;;) {
             if (rootContext.parent == null) {
                 break;
             }
             rootContext = rootContext.parent;
         }
-
-        if (object == rootContext.object) {
-            out.write("{\"$ref\":\"$\"}");
-        } else {
-            out.write("{\"$ref\":\"");
-            String path = references.get(object).toString();
-            out.write(path);
-            out.write("\"}");
-        }
+        return rootContext;
     }
 
     public boolean checkValue(SerializeFilterable filterable) {
@@ -252,7 +276,7 @@ public class JSONSerializer extends SerializeFilterable {
 
     public void println() {
         out.write('\n');
-        for (int i = 0; i < indentCount; ++i) {
+        for (int i = 0;i < indentCount;++i) {
             out.write(indent);
         }
     }
@@ -376,68 +400,96 @@ public class JSONSerializer extends SerializeFilterable {
                 return;
             }
 
-            DateFormat dateFormat = this.getDateFormat();
-            if (dateFormat == null) {
-                if (format != null) {
-                    try {
-                        dateFormat = this.generateDateFormat(format);
-                    } catch (IllegalArgumentException e) {
-                        String format2 = format.replaceAll("T", "'T'");
-                        dateFormat = this.generateDateFormat(format2);
-                    }
-                } else if (fastJsonConfigDateFormatPattern != null) {
-                    dateFormat = this.generateDateFormat(fastJsonConfigDateFormatPattern);
-                } else {
-                    dateFormat = this.generateDateFormat(JSON.DEFFAULT_DATE_FORMAT);
-                }
-            }
-            String text = dateFormat.format((Date) object);
-            out.writeString(text);
+            formatDate(object, format);
             return;
         }
 
         if (object instanceof byte[]) {
-            byte[] bytes = (byte[]) object;
-            if ("gzip".equals(format) || "gzip,base64".equals(format)) {
-                GZIPOutputStream gzipOut = null;
-                try {
-                    ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-                    if (bytes.length < 512) {
-                        gzipOut = new GZIPOutputStream(byteOut, bytes.length);
-                    } else {
-                        gzipOut = new GZIPOutputStream(byteOut);
-                    }
-                    gzipOut.write(bytes);
-                    gzipOut.finish();
-                    out.writeByteArray(byteOut.toByteArray());
-                } catch (IOException ex) {
-                    throw new JSONException("write gzipBytes error", ex);
-                } finally {
-                    IOUtils.close(gzipOut);
-                }
-            } else if ("hex".equals(format)) {
-                out.writeHex(bytes);
-            } else {
-                out.writeByteArray(bytes);
-            }
+            writeFormattedBytes(object, format);
             return;
         }
 
         if (object instanceof Collection) {
-            Collection collection = (Collection) object;
-            Iterator iterator = collection.iterator();
-            out.write('[');
-            for (int i = 0; i < collection.size(); i++) {
-                Object item = iterator.next();
-                if (i != 0) {
-                    out.write(',');
-                }
-                writeWithFormat(item, format);
-            }
-            out.write(']');
+            writeFormattedCollection(object, format);
             return;
         }
         write(object);
+    }
+
+    private void writeFormattedCollection(Object object, String format) {
+        Collection collection = (Collection) object;
+        Iterator iterator = collection.iterator();
+        out.write('[');
+        for (int i = 0;i < collection.size();i++) {
+            writeFormattedItem(format, iterator, i);
+        }
+        out.write(']');
+    }
+
+    private void writeFormattedBytes(Object object, String format) {
+        byte[] bytes = (byte[]) object;
+        if ("gzip".equals(format) || "gzip,base64".equals(format)) {
+            GZIPOutputStream gzipOut = null;
+            try {
+                gzipOut = compressBytes(bytes);
+            } catch (IOException ex) {
+                throw new JSONException("write gzipBytes error", ex);
+            } finally {
+                IOUtils.close(gzipOut);
+            }
+        } else if ("hex".equals(format)) {
+            out.writeHex(bytes);
+        } else {
+            out.writeByteArray(bytes);
+        }
+    }
+
+    private void formatDate(Object object, String format) {
+        DateFormat dateFormat = this.getDateFormat();
+        if (dateFormat == null) {
+            dateFormat = generateConditionalDateFormat(format);
+        }
+        String text = dateFormat.format((Date) object);
+        out.writeString(text);
+    }
+
+    private void writeFormattedItem(String format, Iterator iterator, int i) {
+        Object item = iterator.next();
+        if (i != 0) {
+            out.write(',');
+        }
+        writeWithFormat(item, format);
+    }
+
+    private GZIPOutputStream compressBytes(byte[] bytes) throws IOException {
+        GZIPOutputStream gzipOut;
+        ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+        if (bytes.length < 512) {
+            gzipOut = new GZIPOutputStream(byteOut, bytes.length);
+        } else {
+            gzipOut = new GZIPOutputStream(byteOut);
+        }
+        gzipOut.write(bytes);
+        gzipOut.finish();
+        out.writeByteArray(byteOut.toByteArray());
+        return gzipOut;
+    }
+
+    private DateFormat generateConditionalDateFormat(String format) {
+        DateFormat dateFormat;
+        if (format != null) {
+            try {
+                dateFormat = this.generateDateFormat(format);
+            } catch (IllegalArgumentException e) {
+                String format2 = format.replaceAll("T", "'T'");
+                dateFormat = this.generateDateFormat(format2);
+            }
+        } else if (fastJsonConfigDateFormatPattern != null) {
+            dateFormat = this.generateDateFormat(fastJsonConfigDateFormatPattern);
+        } else {
+            dateFormat = this.generateDateFormat(JSON.DEFFAULT_DATE_FORMAT);
+        }
+        return dateFormat;
     }
 
     public final void write(String text) {

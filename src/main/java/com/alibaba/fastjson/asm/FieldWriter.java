@@ -57,7 +57,7 @@ public final class FieldWriter {
     // Constructor
     // ------------------------------------------------------------------------
 
-    public FieldWriter(final ClassWriter cw, final int access, final String name, final String desc){
+    public FieldWriter(ClassWriter cw, int access, String name, String desc) {
         if (cw.firstField == null) {
             cw.firstField = this;
         } else {
@@ -94,8 +94,8 @@ public final class FieldWriter {
      * 
      * @param out where the content of this field must be put.
      */
-    void put(final ByteVector out) {
-        final int mask = 393216; // Opcodes.ACC_DEPRECATED | ClassWriter.ACC_SYNTHETIC_ATTRIBUTE | ((access & ClassWriter.ACC_SYNTHETIC_ATTRIBUTE) / (ClassWriter.ACC_SYNTHETIC_ATTRIBUTE / Opcodes.ACC_SYNTHETIC));
+    void put(ByteVector out) {
+        int mask = 393216; // Opcodes.ACC_DEPRECATED | ClassWriter.ACC_SYNTHETIC_ATTRIBUTE | ((access & ClassWriter.ACC_SYNTHETIC_ATTRIBUTE) / (ClassWriter.ACC_SYNTHETIC_ATTRIBUTE / Opcodes.ACC_SYNTHETIC));
         out.putShort(access & ~mask).putShort(name).putShort(desc);
         int attributeCount = 0;
         out.putShort(attributeCount);

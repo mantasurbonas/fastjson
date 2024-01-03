@@ -40,7 +40,7 @@ public class TypeReference<T> {
      * parameter in the anonymous class's type hierarchy so we can reconstitute it
      * at runtime despite erasure.
      */
-    protected TypeReference(){
+    protected TypeReference() {
         Type superClass = getClass().getGenericSuperclass();
 
         Type type = ((ParameterizedType) superClass).getActualTypeArguments()[0];
@@ -58,7 +58,7 @@ public class TypeReference<T> {
      * @since 1.2.9
      * @param actualTypeArguments
      */
-    protected TypeReference(Type... actualTypeArguments){
+    protected TypeReference(Type... actualTypeArguments) {
         Class<?> thisClass = this.getClass();
         Type superClass = thisClass.getGenericSuperclass();
 
@@ -67,21 +67,8 @@ public class TypeReference<T> {
         Type[] argTypes = argType.getActualTypeArguments();
 
         int actualIndex = 0;
-        for (int i = 0; i < argTypes.length; ++i) {
-            if (argTypes[i] instanceof TypeVariable &&
-                    actualIndex < actualTypeArguments.length) {
-                argTypes[i] = actualTypeArguments[actualIndex++];
-            }
-            // fix for openjdk and android env
-            if (argTypes[i] instanceof GenericArrayType) {
-                argTypes[i] = TypeUtils.checkPrimitiveArray(
-                        (GenericArrayType) argTypes[i]);
-            }
-
-            // 如果有多层泛型且该泛型已经注明实现的情况下，判断该泛型下一层是否还有泛型
-            if(argTypes[i] instanceof ParameterizedType) {
-                argTypes[i] = handlerParameterizedType((ParameterizedType) argTypes[i], actualTypeArguments, actualIndex);
-            }
+        for (int i = 0;i < argTypes.length;++i) {
+            actualIndex = updateTypeArguments(argTypes, actualIndex, i, actualTypeArguments);
         }
 
         Type key = new ParameterizedTypeImpl(argTypes, thisClass, rawType);
@@ -92,6 +79,24 @@ public class TypeReference<T> {
         }
 
         type = cachedType;
+    }
+
+    private int updateTypeArguments(Type[] argTypes, int actualIndex, int i, Type... actualTypeArguments) {
+        if (argTypes[i] instanceof TypeVariable
+                && actualIndex < actualTypeArguments.length) {
+            argTypes[i] = actualTypeArguments[actualIndex++];
+        }
+        // fix for openjdk and android env
+		if (argTypes[i] instanceof GenericArrayType) {
+            argTypes[i] = TypeUtils.checkPrimitiveArray(
+                    (GenericArrayType) argTypes[i]);
+        }
+
+        // 如果有多层泛型且该泛型已经注明实现的情况下，判断该泛型下一层是否还有泛型
+		if (argTypes[i] instanceof ParameterizedType) {
+            argTypes[i] = handlerParameterizedType((ParameterizedType) argTypes[i], actualTypeArguments, actualIndex);
+        }
+        return actualIndex;
     }
 
     public static Type intern(ParameterizedTypeImpl type) {
@@ -109,25 +114,10 @@ public class TypeReference<T> {
         Type rawType = type.getRawType();
         Type[] argTypes = type.getActualTypeArguments();
 
-        for(int i = 0; i < argTypes.length; ++i) {
-            if (argTypes[i] instanceof TypeVariable && actualIndex < actualTypeArguments.length) {
-                argTypes[i] = actualTypeArguments[actualIndex++];
-            }
+        for (int i = 0;i < argTypes.length;++i) {
+            actualIndex = updateTypeArguments(argTypes, actualIndex, i, actualTypeArguments);}
 
-            // fix for openjdk and android env
-            if (argTypes[i] instanceof GenericArrayType) {
-                argTypes[i] = TypeUtils.checkPrimitiveArray(
-                        (GenericArrayType) argTypes[i]);
-            }
-
-            // 如果有多层泛型且该泛型已经注明实现的情况下，判断该泛型下一层是否还有泛型
-            if(argTypes[i] instanceof ParameterizedType) {
-                argTypes[i] = handlerParameterizedType((ParameterizedType) argTypes[i], actualTypeArguments, actualIndex);
-            }
-        }
-
-        Type key = new ParameterizedTypeImpl(argTypes, thisClass, rawType);
-        return key;
+        return new ParameterizedTypeImpl(argTypes, thisClass, rawType);
     }
     
     /**
@@ -137,5 +127,6 @@ public class TypeReference<T> {
         return type;
     }
 
-    public final static Type LIST_STRING = new TypeReference<List<String>>() {}.getType();
+    public final static Type LIST_STRING = new TypeReference<List<String>>() {
+}.getType();
 }

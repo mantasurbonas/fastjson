@@ -62,17 +62,7 @@ public class AtomicCodec implements ObjectSerializer, ObjectDeserializer {
         }
 
         if (object instanceof AtomicIntegerArray) {
-            AtomicIntegerArray array = (AtomicIntegerArray) object;
-            int len = array.length();
-            out.write('[');
-            for (int i = 0; i < len; ++i) {
-                int val = array.get(i);
-                if (i != 0) {
-                    out.write(',');
-                }
-                out.writeInt(val);
-            }
-            out.write(']');
+            writeAtomicIntegerArray(object, out);
             
             return;
         }
@@ -80,14 +70,30 @@ public class AtomicCodec implements ObjectSerializer, ObjectDeserializer {
         AtomicLongArray array = (AtomicLongArray) object;
         int len = array.length();
         out.write('[');
-        for (int i = 0; i < len; ++i) {
+        for (int i = 0;i < len;++i) {
             long val = array.get(i);
-            if (i != 0) {
-                out.write(',');
-            }
+            writeComma(out, i);
             out.writeLong(val);
         }
         out.write(']');
+    }
+
+    private void writeAtomicIntegerArray(Object object, SerializeWriter out) {
+        AtomicIntegerArray array = (AtomicIntegerArray) object;
+        int len = array.length();
+        out.write('[');
+        for (int i = 0;i < len;++i) {
+            int val = array.get(i);
+            writeComma(out, i);
+            out.writeInt(val);
+        }
+        out.write(']');
+    }
+
+    private void writeComma(SerializeWriter out, int i) {
+        if (i != 0) {
+            out.write(',');
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -101,19 +107,23 @@ public class AtomicCodec implements ObjectSerializer, ObjectDeserializer {
         parser.parseArray(array);
 
         if (clazz == AtomicIntegerArray.class) {
-            AtomicIntegerArray atomicArray = new AtomicIntegerArray(array.size());
-            for (int i = 0; i < array.size(); ++i) {
-                atomicArray.set(i, array.getInteger(i));
-            }
-    
-            return (T) atomicArray;
+            return convertJSONArrayToAtomicArray(array);
         }
         
         AtomicLongArray atomicArray = new AtomicLongArray(array.size());
-        for (int i = 0; i < array.size(); ++i) {
+        for (int i = 0;i < array.size();++i) {
             atomicArray.set(i, array.getLong(i));
         }
 
+        return (T) atomicArray;
+    }
+
+    private <T> T convertJSONArrayToAtomicArray(JSONArray array) {
+        AtomicIntegerArray atomicArray = new AtomicIntegerArray(array.size());
+        for (int i = 0;i < array.size();++i) {
+            atomicArray.set(i, array.getInteger(i));
+        }
+   
         return (T) atomicArray;
     }
 

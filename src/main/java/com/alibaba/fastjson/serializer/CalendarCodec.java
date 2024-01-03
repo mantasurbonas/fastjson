@@ -64,81 +64,113 @@ public class CalendarCodec extends ContextObjectDeserializer implements ObjectSe
         }
 
         if (out.isEnabled(SerializerFeature.UseISO8601DateFormat)) {
-            final char quote = out.isEnabled(SerializerFeature.UseSingleQuotes) //
-                ? '\'' //
-                : '\"';
-            out.append(quote);
-
-            int year = calendar.get(Calendar.YEAR);
-            int month = calendar.get(Calendar.MONTH) + 1;
-            int day = calendar.get(Calendar.DAY_OF_MONTH);
-            int hour = calendar.get(Calendar.HOUR_OF_DAY);
-            int minute = calendar.get(Calendar.MINUTE);
-            int second = calendar.get(Calendar.SECOND);
-            int millis = calendar.get(Calendar.MILLISECOND);
-
-            char[] buf;
-            if (millis != 0) {
-                buf = "0000-00-00T00:00:00.000".toCharArray();
-                IOUtils.getChars(millis, 23, buf);
-                IOUtils.getChars(second, 19, buf);
-                IOUtils.getChars(minute, 16, buf);
-                IOUtils.getChars(hour, 13, buf);
-                IOUtils.getChars(day, 10, buf);
-                IOUtils.getChars(month, 7, buf);
-                IOUtils.getChars(year, 4, buf);
-
-            } else {
-                if (second == 0 && minute == 0 && hour == 0) {
-                    buf = "0000-00-00".toCharArray();
-                    IOUtils.getChars(day, 10, buf);
-                    IOUtils.getChars(month, 7, buf);
-                    IOUtils.getChars(year, 4, buf);
-                } else {
-                    buf = "0000-00-00T00:00:00".toCharArray();
-                    IOUtils.getChars(second, 19, buf);
-                    IOUtils.getChars(minute, 16, buf);
-                    IOUtils.getChars(hour, 13, buf);
-                    IOUtils.getChars(day, 10, buf);
-                    IOUtils.getChars(month, 7, buf);
-                    IOUtils.getChars(year, 4, buf);
-                }
-            }
-
-            out.write(buf);
-
-            float timeZoneF = calendar.getTimeZone().getOffset(calendar.getTimeInMillis()) / (3600.0f * 1000);
-            int timeZone = (int)timeZoneF;
-            if (timeZone == 0.0) {
-                out.write('Z');
-            } else {
-                if (timeZone > 9) {
-                    out.write('+');
-                    out.writeInt(timeZone);
-                } else if (timeZone > 0) {
-                    out.write('+');
-                    out.write('0');
-                    out.writeInt(timeZone);
-                } else if (timeZone < -9) {
-                    out.write('-');
-                    out.writeInt(timeZone);
-                } else if (timeZone < 0) {
-                    out.write('-');
-                    out.write('0');
-                    out.writeInt(-timeZone);
-                }
-                out.write(':');
-                // handles uneven timeZones 30 mins, 45 mins
-                // this would always be less than 60
-                int offSet = (int)((timeZoneF - timeZone) * 60);
-                out.append(String.format("%02d", offSet));
-            }
-
-            out.append(quote);
+            writeFormattedCalendar(out, calendar);
         } else {
             Date date = calendar.getTime();
             serializer.write(date);
         }
+    }
+
+
+    private void writeFormattedCalendar(SerializeWriter out, Calendar calendar) throws IOException {
+        char quote = out.isEnabled(SerializerFeature.UseSingleQuotes) //
+		    ? '\'' //
+		    : '\"';
+        out.append(quote);
+
+        int year = calendar.get(Calendar.YEAR);
+        int month = calendar.get(Calendar.MONTH) + 1;
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+        int hour = calendar.get(Calendar.HOUR_OF_DAY);
+        int minute = calendar.get(Calendar.MINUTE);
+        int second = calendar.get(Calendar.SECOND);
+        int millis = calendar.get(Calendar.MILLISECOND);
+
+        char[] buf;
+        if (millis != 0) {
+            buf = formatDateTimeToCharArray(year, month, day, hour, minute, second, millis);
+
+        } else {
+            buf = formatDateTimeComponentsToCharArray(year, month, day, hour, minute, second);
+        }
+
+        out.write(buf);
+
+        float timeZoneF = calendar.getTimeZone().getOffset(calendar.getTimeInMillis()) / (3600.0f * 1000);
+        int timeZone = (int) timeZoneF;
+        if (timeZone == 0.0) {
+            out.write('Z');
+        } else {
+            writeTimeZone(out, timeZoneF, timeZone);
+        }
+
+        out.append(quote);
+    }
+
+
+    private char[] formatDateTimeComponentsToCharArray(int year, int month, int day, int hour, int minute, int second) {
+        char[] buf;
+        if (second == 0 && minute == 0 && hour == 0) {
+            buf = "0000-00-00".toCharArray();
+            formatDateToBuffer(year, month, day, buf);
+        } else {
+            buf = formatDateTimeComponents(year, month, day, hour, minute, second);
+        }
+        return buf;
+    }
+
+
+    private void writeTimeZone(SerializeWriter out, float timeZoneF, int timeZone) {
+        if (timeZone > 9) {
+            out.write('+');
+            out.writeInt(timeZone);
+        } else if (timeZone > 0) {
+            out.write('+');
+            out.write('0');
+            out.writeInt(timeZone);
+        } else if (timeZone < -9) {
+            out.write('-');
+            out.writeInt(timeZone);
+        } else if (timeZone < 0) {
+            out.write('-');
+            out.write('0');
+            out.writeInt(-timeZone);
+        }
+        out.write(':');
+        // handles uneven timeZones 30 mins, 45 mins
+		// this would always be less than 60
+		int offSet = (int) ((timeZoneF - timeZone) * 60);
+        out.append(String.format("%02d", offSet));
+    }
+
+
+    private char[] formatDateTimeComponents(int year, int month, int day, int hour, int minute, int second) {
+        char[] buf;
+        buf = "0000-00-00T00:00:00".toCharArray();
+        IOUtils.getChars(second, 19, buf);
+        IOUtils.getChars(minute, 16, buf);
+        IOUtils.getChars(hour, 13, buf);
+        formatDateToBuffer(year, month, day, buf);
+        return buf;
+    }
+
+
+    private char[] formatDateTimeToCharArray(int year, int month, int day, int hour, int minute, int second, int millis) {
+        char[] buf;
+        buf = "0000-00-00T00:00:00.000".toCharArray();
+        IOUtils.getChars(millis, 23, buf);
+        IOUtils.getChars(second, 19, buf);
+        IOUtils.getChars(minute, 16, buf);
+        IOUtils.getChars(hour, 13, buf);
+        formatDateToBuffer(year, month, day, buf);
+        return buf;
+    }
+
+
+    private void formatDateToBuffer(int year, int month, int day, char[] buf) {
+        IOUtils.getChars(day, 10, buf);
+        IOUtils.getChars(month, 7, buf);
+        IOUtils.getChars(year, 4, buf);
     }
 
     public <T> T deserialze(DefaultJSONParser parser, Type clazz, Object fieldName) {

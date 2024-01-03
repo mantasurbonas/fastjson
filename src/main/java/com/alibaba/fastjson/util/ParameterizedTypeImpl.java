@@ -10,7 +10,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     private final Type   ownerType;
     private final Type   rawType;
 
-    public ParameterizedTypeImpl(Type[] actualTypeArguments, Type ownerType, Type rawType){
+    public ParameterizedTypeImpl(Type[] actualTypeArguments, Type ownerType, Type rawType) {
         this.actualTypeArguments = actualTypeArguments;
         this.ownerType = ownerType;
         this.rawType = rawType;
@@ -31,14 +31,22 @@ public class ParameterizedTypeImpl implements ParameterizedType {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
 
         ParameterizedTypeImpl that = (ParameterizedTypeImpl) o;
 
         // Probably incorrect - comparing Object[] arrays with Arrays.equals
-        if (!Arrays.equals(actualTypeArguments, that.actualTypeArguments)) return false;
-        if (ownerType != null ? !ownerType.equals(that.ownerType) : that.ownerType != null) return false;
+        if (!Arrays.equals(actualTypeArguments, that.actualTypeArguments)) {
+            return false;
+        }
+        if (ownerType != null ? !ownerType.equals(that.ownerType) : that.ownerType != null) {
+            return false;
+        }
         return rawType != null ? rawType.equals(that.rawType) : that.rawType == null;
 
     }
@@ -47,7 +55,6 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     public int hashCode() {
         int result = actualTypeArguments != null ? Arrays.hashCode(actualTypeArguments) : 0;
         result = 31 * result + (ownerType != null ? ownerType.hashCode() : 0);
-        result = 31 * result + (rawType != null ? rawType.hashCode() : 0);
-        return result;
+        return 31 * result + (rawType != null ? rawType.hashCode() : 0);
     }
 }

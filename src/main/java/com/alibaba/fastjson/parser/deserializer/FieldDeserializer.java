@@ -58,9 +58,9 @@ public abstract class FieldDeserializer {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void setValue(Object object, Object value) {
         if (value == null //
-                && fieldInfo.fieldClass.isPrimitive()) {
+                && fieldInfo.fieldClass.isPrimitive())
             return;
-        } else if (fieldInfo.fieldClass == String.class
+        if (fieldInfo.fieldClass == String.class
                 && fieldInfo.format != null
                 && fieldInfo.format.equals("trim")) {
             value = ((String) value).trim();
@@ -71,27 +71,15 @@ public abstract class FieldDeserializer {
             if (method != null) {
                 if (fieldInfo.getOnly) {
                     if (fieldInfo.fieldClass == AtomicInteger.class) {
-                        AtomicInteger atomic = (AtomicInteger) method.invoke(object);
-                        if (atomic != null) {
-                            atomic.set(((AtomicInteger) value).get());
-                        } else {
-                            degradeValueAssignment(fieldInfo.field, method, object, value);
-                        }
-                    } else if (fieldInfo.fieldClass == AtomicLong.class) {
-                        AtomicLong atomic = (AtomicLong) method.invoke(object);
-                        if (atomic != null) {
-                            atomic.set(((AtomicLong) value).get());
-                        } else {
-                            degradeValueAssignment(fieldInfo.field, method, object, value);
-                        }
-                    } else if (fieldInfo.fieldClass == AtomicBoolean.class) {
-                        AtomicBoolean atomic = (AtomicBoolean) method.invoke(object);
-                        if (atomic != null) {
-                            atomic.set(((AtomicBoolean) value).get());
-                        } else {
-                            degradeValueAssignment(fieldInfo.field, method, object, value);
-                        }
-                    } else if (Map.class.isAssignableFrom(method.getReturnType())) {
+                        invokeAtomicSet(object, value, method);
+                    }
+                    else if (fieldInfo.fieldClass == AtomicLong.class) {
+                        invokeAtomicLongSet(object, value, method);
+                    }
+                    else if (fieldInfo.fieldClass == AtomicBoolean.class) {
+                        invokeAtomicBooleanSet(object, value, method);
+                    }
+                    else if (Map.class.isAssignableFrom(method.getReturnType())) {
                         Map map = null;
                         try {
                             map = (Map) method.invoke(object);
@@ -123,10 +111,12 @@ public abstract class FieldDeserializer {
                             }
 
                             map.putAll((Map) value);
-                        } else if (value != null) {
+                        }
+                        else if (value != null) {
                             degradeValueAssignment(fieldInfo.field, method, object, value);
                         }
-                    } else {
+                    }
+                    else {
                         Collection collection = null;
                         try {
                             collection = (Collection) method.invoke(object);
@@ -148,7 +138,8 @@ public abstract class FieldDeserializer {
 
                             if (!collection.isEmpty()) {
                                 collection.clear();
-                            } else if (((Collection) value).isEmpty()) {
+                            }
+                            else if (((Collection) value).isEmpty()) {
                                 return; //skip
                             }
 
@@ -159,33 +150,30 @@ public abstract class FieldDeserializer {
                                 return;
                             }
                             collection.addAll((Collection) value);
-                        } else if (collection == null && value != null) {
+                        }
+                        else if (collection == null && value != null) {
                             degradeValueAssignment(fieldInfo.field, method, object, value);
                         }
                     }
-                } else {
+                }
+                else {
                     method.invoke(object, value);
                 }
-            } else {
-                final Field field = fieldInfo.field;
+            }
+            else {
+                Field field = fieldInfo.field;
                 
                 if (fieldInfo.getOnly) {
                     if (fieldInfo.fieldClass == AtomicInteger.class) {
-                        AtomicInteger atomic = (AtomicInteger) field.get(object);
-                        if (atomic != null) {
-                            atomic.set(((AtomicInteger) value).get());
-                        }
-                    } else if (fieldInfo.fieldClass == AtomicLong.class) {
-                        AtomicLong atomic = (AtomicLong) field.get(object);
-                        if (atomic != null) {
-                            atomic.set(((AtomicLong) value).get());
-                        }
-                    } else if (fieldInfo.fieldClass == AtomicBoolean.class) {
-                        AtomicBoolean atomic = (AtomicBoolean) field.get(object);
-                        if (atomic != null) {
-                            atomic.set(((AtomicBoolean) value).get());
-                        }
-                    } else if (Map.class.isAssignableFrom(fieldInfo.fieldClass)) {
+                        setAtomicFieldValue(object, value, field);
+                    }
+                    else if (fieldInfo.fieldClass == AtomicLong.class) {
+                        setAtomicLongValue(object, value, field);
+                    }
+                    else if (fieldInfo.fieldClass == AtomicBoolean.class) {
+                        setAtomicBooleanValue(object, value, field);
+                    }
+                    else if (Map.class.isAssignableFrom(fieldInfo.fieldClass)) {
                         Map map = (Map) field.get(object);
                         if (map != null) {
                             if (map == Collections.emptyMap()
@@ -195,7 +183,8 @@ public abstract class FieldDeserializer {
                             }
                             map.putAll((Map) value);
                         }
-                    } else {
+                    }
+                    else {
                         Collection collection = (Collection) field.get(object);
                         if (collection != null && value != null) {
                             if (collection == Collections.emptySet()
@@ -209,7 +198,8 @@ public abstract class FieldDeserializer {
                             collection.addAll((Collection) value);
                         }
                     }
-                } else {
+                }
+                else {
                     if (field != null) {
                         field.set(object, value);
                     }
@@ -217,6 +207,57 @@ public abstract class FieldDeserializer {
             }
         } catch (Exception e) {
             throw new JSONException("set property error, " + clazz.getName() + "#" + fieldInfo.name, e);
+        }
+    }
+
+    private void setAtomicBooleanValue(Object object, Object value, Field field) throws IllegalAccessException {
+        AtomicBoolean atomic = (AtomicBoolean) field.get(object);
+        if (atomic != null) {
+            atomic.set(((AtomicBoolean) value).get());
+        }
+    }
+
+    private void setAtomicLongValue(Object object, Object value, Field field) throws IllegalAccessException {
+        AtomicLong atomic = (AtomicLong) field.get(object);
+        if (atomic != null) {
+            atomic.set(((AtomicLong) value).get());
+        }
+    }
+
+    private void setAtomicFieldValue(Object object, Object value, Field field) throws IllegalAccessException {
+        AtomicInteger atomic = (AtomicInteger) field.get(object);
+        if (atomic != null) {
+            atomic.set(((AtomicInteger) value).get());
+        }
+    }
+
+    private void invokeAtomicBooleanSet(Object object, Object value, Method method)
+            throws IllegalAccessException, InvocationTargetException {
+        AtomicBoolean atomic = (AtomicBoolean) method.invoke(object);
+        if (atomic != null) {
+            atomic.set(((AtomicBoolean) value).get());
+        } else {
+            degradeValueAssignment(fieldInfo.field, method, object, value);
+        }
+    }
+
+    private void invokeAtomicLongSet(Object object, Object value, Method method)
+            throws IllegalAccessException, InvocationTargetException {
+        AtomicLong atomic = (AtomicLong) method.invoke(object);
+        if (atomic != null) {
+            atomic.set(((AtomicLong) value).get());
+        } else {
+            degradeValueAssignment(fieldInfo.field, method, object, value);
+        }
+    }
+
+    private void invokeAtomicSet(Object object, Object value, Method method)
+            throws IllegalAccessException, InvocationTargetException {
+        AtomicInteger atomic = (AtomicInteger) method.invoke(object);
+        if (atomic != null) {
+            atomic.set(((AtomicInteger) value).get());
+        } else {
+            degradeValueAssignment(fieldInfo.field, method, object, value);
         }
     }
 

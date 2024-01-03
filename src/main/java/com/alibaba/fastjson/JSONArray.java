@@ -50,18 +50,18 @@ public class JSONArray extends JSON implements List<Object>, Cloneable, RandomAc
     protected transient Object relatedArray;
     protected transient Type   componentType;
 
-    public JSONArray(){
+    public JSONArray() {
         this.list = new ArrayList<Object>();
     }
 
-    public JSONArray(List<Object> list){
-        if (list == null){
+    public JSONArray(List<Object> list) {
+        if (list == null) {
             throw new IllegalArgumentException("list is null.");
         }
         this.list = list;
     }
 
-    public JSONArray(int initialCapacity){
+    public JSONArray(int initialCapacity) {
         this.list = new ArrayList<Object>(initialCapacity);
     }
 
@@ -183,14 +183,18 @@ public class JSONArray extends JSON implements List<Object>, Cloneable, RandomAc
         }
 
         if (list.size() <= index) {
-            for (int i = list.size(); i < index; ++i) {
-                list.add(null);
-            }
-            list.add(element);
-            return null;
+            return addElementAtIndex(index, element);
         }
 
         return list.set(index, element);
+    }
+
+    private Object addElementAtIndex(int index, Object element) {
+        for (int i = list.size();i < index;++i) {
+            list.add(null);
+        }
+        list.add(element);
+        return null;
     }
 
     public JSONArray fluentSet(int index, Object element) {
@@ -275,12 +279,10 @@ public class JSONArray extends JSON implements List<Object>, Cloneable, RandomAc
 
     public <T> T getObject(int index, Type type) {
         Object obj = list.get(index);
-        if (type instanceof Class) {
+        if (type instanceof Class)
             return (T) TypeUtils.castToJavaBean(obj, (Class) type);
-        } else {
-            String json = JSON.toJSONString(obj);
-            return (T) JSON.parseObject(json, type);
-        }
+        String json = JSON.toJSONString(obj);
+        return (T) JSON.parseObject(json, type);
     }
 
     public Boolean getBoolean(int index) {

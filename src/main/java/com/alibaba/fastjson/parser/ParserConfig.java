@@ -67,11 +67,11 @@ import static com.alibaba.fastjson.util.TypeUtils.fnv1a_64_magic_prime;
  */
 public class ParserConfig {
 
-    public static final String    DENY_PROPERTY_INTERNAL    = "fastjson.parser.deny.internal";
-    public static final String    DENY_PROPERTY             = "fastjson.parser.deny";
-    public static final String    AUTOTYPE_ACCEPT           = "fastjson.parser.autoTypeAccept";
+    public static final String    DENY_PROPERTY_INTERNAL = "fastjson.parser.deny.internal";
+    public static final String    DENY_PROPERTY = "fastjson.parser.deny";
+    public static final String    AUTOTYPE_ACCEPT = "fastjson.parser.autoTypeAccept";
     public static final String    AUTOTYPE_SUPPORT_PROPERTY = "fastjson.parser.autoTypeSupport";
-    public static final String    SAFE_MODE_PROPERTY        = "fastjson.parser.safeMode";
+    public static final String    SAFE_MODE_PROPERTY = "fastjson.parser.safeMode";
 
     public static  final String[] DENYS_INTERNAL;
     public static  final String[] DENYS;
@@ -106,7 +106,7 @@ public class ParserConfig {
             AUTO_TYPE_ACCEPT_LIST = items;
         }
 
-        INTERNAL_WHITELIST_HASHCODES = new long[] {
+        INTERNAL_WHITELIST_HASHCODES = new long[]{
                 0x9F2E20FB6049A371L,
                 0xA8AAA929446FFCE4L,
                 0xD45D6F8C9017FAL,
@@ -117,15 +117,15 @@ public class ParserConfig {
     public static ParserConfig getGlobalInstance() {
         return global;
     }
-    public static ParserConfig                              global                = new ParserConfig();
+    public static ParserConfig                              global = new ParserConfig();
 
-    private final IdentityHashMap<Type, ObjectDeserializer> deserializers         = new IdentityHashMap<Type, ObjectDeserializer>();
+    private final IdentityHashMap<Type, ObjectDeserializer> deserializers = new IdentityHashMap<Type, ObjectDeserializer>();
     private final IdentityHashMap<Type, IdentityHashMap<Type, ObjectDeserializer>> mixInDeserializers = new IdentityHashMap<Type, IdentityHashMap<Type, ObjectDeserializer>>(16);
-    private final ConcurrentMap<String,Class<?>>            typeMapping           = new ConcurrentHashMap<String,Class<?>>(16, 0.75f, 1);
+    private final ConcurrentMap<String, Class<?>>            typeMapping = new ConcurrentHashMap<String, Class<?>>(16, 0.75f, 1);
 
-    private boolean                                         asmEnable             = !ASMUtils.IS_ANDROID;
+    private boolean                                         asmEnable = !ASMUtils.IS_ANDROID;
 
-    public final SymbolTable                                symbolTable           = new SymbolTable(4096);
+    public final SymbolTable                                symbolTable = new SymbolTable(4096);
 
     public PropertyNamingStrategy                           propertyNamingStrategy;
 
@@ -133,24 +133,24 @@ public class ParserConfig {
 
     protected ASMDeserializerFactory                        asmFactory;
 
-    private static boolean                                  awtError              = false;
-    private static boolean                                  jdk8Error             = false;
-    private static boolean                                  jodaError             = false;
-    private static boolean                                  guavaError            = false;
+    private static boolean                                  awtError = false;
+    private static boolean                                  jdk8Error = false;
+    private static boolean                                  jodaError = false;
+    private static boolean                                  guavaError = false;
 
-    private boolean                                         autoTypeSupport       = AUTO_SUPPORT;
+    private boolean                                         autoTypeSupport = AUTO_SUPPORT;
     private long[]                                          internalDenyHashCodes;
     private long[]                                          denyHashCodes;
     private long[]                                          acceptHashCodes;
 
 
     public final boolean                                    fieldBased;
-    private boolean                                         jacksonCompatible     = false;
+    private boolean                                         jacksonCompatible = false;
 
     public boolean                                          compatibleWithJavaBean = TypeUtils.compatibleWithJavaBean;
-    private List<Module>                                    modules                = new ArrayList<Module>();
+    private List<Module>                                    modules = new ArrayList<Module>();
     private volatile List<AutoTypeCheckHandler>             autoTypeCheckHandlers;
-    private boolean                                         safeMode               = SAFE_MODE;
+    private boolean                                         safeMode = SAFE_MODE;
 
     {
         denyHashCodes = new long[]{
@@ -326,7 +326,7 @@ public class ParserConfig {
         };
 
         long[] hashCodes = new long[AUTO_TYPE_ACCEPT_LIST.length];
-        for (int i = 0; i < AUTO_TYPE_ACCEPT_LIST.length; i++) {
+        for (int i = 0;i < AUTO_TYPE_ACCEPT_LIST.length;i++) {
             hashCodes[i] = TypeUtils.fnv1a_64(AUTO_TYPE_ACCEPT_LIST[i]);
         }
 
@@ -334,31 +334,27 @@ public class ParserConfig {
         acceptHashCodes = hashCodes;
     }
 
-    public ParserConfig(){
+    public ParserConfig() {
         this(false);
     }
 
-    public ParserConfig(boolean fieldBase){
+    public ParserConfig(boolean fieldBase) {
         this(null, null, fieldBase);
     }
 
-    public ParserConfig(ClassLoader parentClassLoader){
+    public ParserConfig(ClassLoader parentClassLoader) {
         this(null, parentClassLoader, false);
     }
 
-    public ParserConfig(ASMDeserializerFactory asmFactory){
+    public ParserConfig(ASMDeserializerFactory asmFactory) {
         this(asmFactory, null, false);
     }
 
-    private ParserConfig(ASMDeserializerFactory asmFactory, ClassLoader parentClassLoader, boolean fieldBased){
+    private ParserConfig(ASMDeserializerFactory asmFactory, ClassLoader parentClassLoader, boolean fieldBased) {
         this.fieldBased = fieldBased;
         if (asmFactory == null && !ASMUtils.IS_ANDROID) {
             try {
-                if (parentClassLoader == null) {
-                    asmFactory = new ASMDeserializerFactory(new ASMClassLoader());
-                } else {
-                    asmFactory = new ASMDeserializerFactory(parentClassLoader);
-                }
+                asmFactory = createASMFactory(parentClassLoader);
             } catch (ExceptionInInitializerError error) {
                 // skip
             } catch (AccessControlException error) {
@@ -380,6 +376,16 @@ public class ParserConfig {
         addItemsToDeny0(DENYS_INTERNAL);
         addItemsToAccept(AUTO_TYPE_ACCEPT_LIST);
 
+    }
+
+    private ASMDeserializerFactory createASMFactory(ClassLoader parentClassLoader) {
+        ASMDeserializerFactory asmFactory;
+        if (parentClassLoader == null) {
+            asmFactory = new ASMDeserializerFactory(new ASMClassLoader());
+        } else {
+            asmFactory = new ASMDeserializerFactory(parentClassLoader);
+        }
+        return asmFactory;
     }
 
     private final Callable<Void> initDeserializersWithJavaSql = new Callable<Void>() {
@@ -472,7 +478,7 @@ public class ParserConfig {
         ModuleUtil.callWhenHasJavaSql(initDeserializersWithJavaSql);
     }
 
-    private static String[] splitItemsFormProperty(final String property ){
+    private static String[] splitItemsFormProperty(String property) {
         if (property != null && property.length() > 0) {
             return property.split(",");
         }
@@ -491,43 +497,47 @@ public class ParserConfig {
             addItemsToAccept(items);
         }
         {
-            String property = properties.getProperty(AUTOTYPE_SUPPORT_PROPERTY);
-            if ("true".equals(property)) {
-                this.autoTypeSupport = true;
-            } else if ("false".equals(property)) {
-                this.autoTypeSupport = false;
-            }
+            setAutoTypeSupportProperty(properties);
         }
     }
 
-    private void addItemsToDeny0(final String[] items){
-        if (items == null){
+    private void setAutoTypeSupportProperty(Properties properties) {
+        String property = properties.getProperty(AUTOTYPE_SUPPORT_PROPERTY);
+        if ("true".equals(property)) {
+            this.autoTypeSupport = true;
+        } else if ("false".equals(property)) {
+            this.autoTypeSupport = false;
+        }
+    }
+
+    private void addItemsToDeny0(String[] items) {
+        if (items == null) {
             return;
         }
 
-        for (int i = 0; i < items.length; ++i) {
+        for (int i = 0;i < items.length;++i) {
             String item = items[i];
             this.addDenyInternal(item);
         }
     }
 
-    private void addItemsToDeny(final String[] items){
-        if (items == null){
+    private void addItemsToDeny(String[] items) {
+        if (items == null) {
             return;
         }
 
-        for (int i = 0; i < items.length; ++i) {
+        for (int i = 0;i < items.length;++i) {
             String item = items[i];
             this.addDeny(item);
         }
     }
 
-    private void addItemsToAccept(final String[] items){
-        if (items == null){
+    private void addItemsToAccept(String[] items) {
+        if (items == null) {
             return;
         }
 
-        for (int i = 0; i < items.length; ++i) {
+        for (int i = 0;i < items.length;++i) {
             String item = items[i];
             this.addAccept(item);
         }
@@ -585,12 +595,7 @@ public class ParserConfig {
         }
 
         if (type instanceof ParameterizedType) {
-            Type rawType = ((ParameterizedType) type).getRawType();
-            if (rawType instanceof Class<?>) {
-                return getDeserializer((Class<?>) rawType, type);
-            } else {
-                return getDeserializer(rawType);
-            }
+            return getDeserializerByType(type);
         }
 
         if (type instanceof WildcardType) {
@@ -603,6 +608,13 @@ public class ParserConfig {
         }
 
         return JavaObjectDeserializer.instance;
+    }
+
+    private ObjectDeserializer getDeserializerByType(Type type) {
+        Type rawType = ((ParameterizedType) type).getRawType();
+        if (rawType instanceof Class<?>)
+            return getDeserializer((Class<?>) rawType, type);
+        return getDeserializer(rawType);
     }
 
     public ObjectDeserializer getDeserializer(Class<?> clazz, Type type) {
@@ -626,7 +638,7 @@ public class ParserConfig {
         }
 
         {
-            JSONType annotation = TypeUtils.getAnnotation(clazz,JSONType.class);
+            JSONType annotation = TypeUtils.getAnnotation(clazz, JSONType.class);
             if (annotation != null) {
                 Class<?> mappingTo = annotation.mappingTo();
                 if (mappingTo != Void.class) {
@@ -657,7 +669,7 @@ public class ParserConfig {
         if (className.startsWith("java.awt.") //
             && AwtCodec.support(clazz)) {
             if (!awtError) {
-                String[] names = new String[] {
+                String[] names = new String[]{
                         "java.awt.Point",
                         "java.awt.Font",
                         "java.awt.Rectangle",
@@ -683,7 +695,7 @@ public class ParserConfig {
         if (!jdk8Error) {
             try {
                 if (className.startsWith("java.time.")) {
-                    String[] names = new String[] {
+                    String[] names = new String[]{
                             "java.time.LocalDateTime",
                             "java.time.LocalDate",
                             "java.time.LocalTime",
@@ -705,7 +717,7 @@ public class ParserConfig {
                         }
                     }
                 } else if (className.startsWith("java.util.Optional")) {
-                    String[] names = new String[] {
+                    String[] names = new String[]{
                             "java.util.Optional",
                             "java.util.OptionalDouble",
                             "java.util.OptionalInt",
@@ -727,7 +739,7 @@ public class ParserConfig {
         if (!jodaError) {
             try {
                 if (className.startsWith("org.joda.time.")) {
-                    String[] names = new String[] {
+                    String[] names = new String[]{
                             "org.joda.time.DateTime",
                             "org.joda.time.LocalDate",
                             "org.joda.time.LocalDateTime",
@@ -755,7 +767,7 @@ public class ParserConfig {
         if ((!guavaError) //
                 && className.startsWith("com.google.common.collect.")) {
             try {
-                String[] names = new String[] {
+                String[] names = new String[]{
                         "com.google.common.collect.HashMultimap",
                         "com.google.common.collect.LinkedListMultimap",
                         "com.google.common.collect.LinkedHashMultimap",
@@ -791,14 +803,9 @@ public class ParserConfig {
             putDeserializer(clazz, deserializer = MonetaCodec.instance);
         }
 
-        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         try {
-            for (AutowiredObjectDeserializer autowired : ServiceLoader.load(AutowiredObjectDeserializer.class,
-                                                                            classLoader)) {
-                for (Type forType : autowired.getAutowiredFor()) {
-                    putDeserializer(forType, autowired);
-                }
-            }
+            loadAndRegisterDeserializers(classLoader);
         } catch (Exception ex) {
             // skip
         }
@@ -816,8 +823,7 @@ public class ParserConfig {
                 Method[] methods = clazz.getMethods();
                 for (Method method : methods) {
                     if (TypeUtils.isJacksonCreator(method)) {
-                        deserializer = createJavaBeanDeserializer(clazz, type);
-                        putDeserializer(type, deserializer);
+                        deserializer = createAndStoreDeserializer(clazz, type);
                         return deserializer;
                     }
                 }
@@ -841,14 +847,7 @@ public class ParserConfig {
 
             Method jsonCreatorMethod = null;
             if (mixInType != null) {
-                Method mixedCreator = getEnumCreator(mixInType, clazz);
-                if (mixedCreator != null) {
-                    try {
-                        jsonCreatorMethod = clazz.getMethod(mixedCreator.getName(), mixedCreator.getParameterTypes());
-                    } catch (Exception e) {
-                        // skip
-                    }
-                }
+                jsonCreatorMethod = getJsonCreatorMethod(clazz, mixInType, jsonCreatorMethod);
             } else {
                 jsonCreatorMethod = getEnumCreator(clazz, clazz);
             }
@@ -884,9 +883,60 @@ public class ParserConfig {
         return deserializer;
     }
 
+    private void loadAndRegisterDeserializers(ClassLoader classLoader) {
+        for (AutowiredObjectDeserializer autowired : ServiceLoader.load(AutowiredObjectDeserializer.class,
+                                                                        classLoader)) {
+            registerDeserializers(autowired);
+        }
+    }
+
+    private Method getJsonCreatorMethod(Class<?> clazz, Class mixInType, Method jsonCreatorMethod) {
+        Method mixedCreator = getEnumCreator(mixInType, clazz);
+        if (mixedCreator != null) {
+            try {
+                jsonCreatorMethod = clazz.getMethod(mixedCreator.getName(), mixedCreator.getParameterTypes());
+            } catch (Exception e) {
+                // skip
+		    }
+        }
+        return jsonCreatorMethod;
+    }
+
+    private void registerDeserializers(AutowiredObjectDeserializer autowired) {
+        for (Type forType : autowired.getAutowiredFor()) {
+            putDeserializer(forType, autowired);
+        }
+    }
+
+    private ObjectDeserializer createAndStoreDeserializer(Class<?> clazz, Type type) {
+        ObjectDeserializer deserializer;
+        deserializer = createJavaBeanDeserializer(clazz, type);
+        putDeserializer(type, deserializer);
+        return deserializer;
+    }
+
     private static Method getEnumCreator(Class clazz, Class enumClass) {
         Method[] methods = clazz.getMethods();
         Method jsonCreatorMethod = null;
+        return findJSONCreatorMethod(enumClass, methods, jsonCreatorMethod);
+    }
+
+    private static Method findJSONCreatorMethod(Class enumClass, Method[] methods, Method jsonCreatorMethod) {
+        jsonCreatorMethod = findJsonCreatorMethod(enumClass, methods, jsonCreatorMethod);
+        return jsonCreatorMethod;
+    }
+
+    private static Method findJsonCreatorMethod(Class enumClass, Method[] methods, Method jsonCreatorMethod) {
+        jsonCreatorMethod = findJsonCreatorMethodForEnum(enumClass, methods, jsonCreatorMethod);
+        return jsonCreatorMethod;
+    }
+
+    private static Method findJsonCreatorMethodForEnum(Class enumClass, Method[] methods, Method jsonCreatorMethod) {
+        jsonCreatorMethod = findStaticJsonCreatorMethod(enumClass, methods, jsonCreatorMethod);
+        return jsonCreatorMethod;
+    }
+
+    private static Method findStaticJsonCreatorMethod(Class enumClass, Method[] methods, Method jsonCreatorMethod) {
         for (Method method : methods) {
             if (Modifier.isStatic(method.getModifiers())
                     && method.getReturnType() == enumClass
@@ -899,7 +949,6 @@ public class ParserConfig {
                 }
             }
         }
-
         return jsonCreatorMethod;
     }
 
@@ -910,7 +959,7 @@ public class ParserConfig {
      * @author zhu.xiaojie
      * @time 2020-4-5
      */
-    protected ObjectDeserializer getEnumDeserializer(Class<?> clazz){
+    protected ObjectDeserializer getEnumDeserializer(Class<?> clazz) {
         return new EnumDeserializer(clazz);
     }
 
@@ -923,19 +972,22 @@ public class ParserConfig {
             return;
         }
 
-        for (Class<?> type : classes) {
-            if (type == null) {
-                continue;
-            }
-            ObjectDeserializer deserializer = createJavaBeanDeserializer(type, type);
-            putDeserializer(type, deserializer);
+        for (Class<?> type : classes)
+            registerTypeDeserializer(type);
+    }
+
+    private void registerTypeDeserializer(Class<?> type) {
+        if (type == null) {
+            return;
         }
+        ObjectDeserializer deserializer = createJavaBeanDeserializer(type, type);
+        putDeserializer(type, deserializer);
     }
 
     public ObjectDeserializer createJavaBeanDeserializer(Class<?> clazz, Type type) {
         boolean asmEnable = this.asmEnable & !this.fieldBased;
         if (asmEnable) {
-            JSONType jsonType = TypeUtils.getAnnotation(clazz,JSONType.class);
+            JSONType jsonType = TypeUtils.getAnnotation(clazz, JSONType.class);
 
             if (jsonType != null) {
                 Class<?> deserializerClass = jsonType.deserializer();
@@ -987,69 +1039,7 @@ public class ParserConfig {
         }
 
         if (asmEnable) {
-            if (clazz.isInterface()) {
-                asmEnable = false;
-            }
-            JavaBeanInfo beanInfo = JavaBeanInfo.build(clazz
-                    , type
-                    , propertyNamingStrategy
-                    ,false
-                    , TypeUtils.compatibleWithJavaBean
-                    , jacksonCompatible
-            );
-
-            if (asmEnable && beanInfo.fields.length > 200) {
-                asmEnable = false;
-            }
-
-            Constructor<?> defaultConstructor = beanInfo.defaultConstructor;
-            if (asmEnable && defaultConstructor == null && !clazz.isInterface()) {
-                asmEnable = false;
-            }
-
-            for (FieldInfo fieldInfo : beanInfo.fields) {
-                if (fieldInfo.getOnly) {
-                    asmEnable = false;
-                    break;
-                }
-
-                Class<?> fieldClass = fieldInfo.fieldClass;
-                if (!Modifier.isPublic(fieldClass.getModifiers())) {
-                    asmEnable = false;
-                    break;
-                }
-
-                if (fieldClass.isMemberClass() && !Modifier.isStatic(fieldClass.getModifiers())) {
-                    asmEnable = false;
-                    break;
-                }
-
-                if (fieldInfo.getMember() != null //
-                    && !ASMUtils.checkName(fieldInfo.getMember().getName())) {
-                    asmEnable = false;
-                    break;
-                }
-
-                JSONField annotation = fieldInfo.getAnnotation();
-                if (annotation != null //
-                    && ((!ASMUtils.checkName(annotation.name())) //
-                        || annotation.format().length() != 0 //
-                        || annotation.deserializeUsing() != Void.class //
-                        || annotation.parseFeatures().length != 0 //
-                        || annotation.unwrapped())
-                        || (fieldInfo.method != null && fieldInfo.method.getParameterTypes().length > 1)) {
-                    asmEnable = false;
-                    break;
-                }
-
-                if (fieldClass.isEnum()) { // EnumDeserializer
-                    ObjectDeserializer fieldDeser = this.getDeserializer(fieldClass);
-                    if (!(fieldDeser instanceof EnumDeserializer)) {
-                        asmEnable = false;
-                        break;
-                    }
-                }
-            }
+            asmEnable = determineAsmEligibility(clazz, type, asmEnable);
         }
 
         if (asmEnable) {
@@ -1083,6 +1073,77 @@ public class ParserConfig {
         }
     }
 
+    private boolean determineAsmEligibility(Class<?> clazz, Type type, boolean asmEnable) {
+        if (clazz.isInterface()) {
+            asmEnable = false;
+        }
+        JavaBeanInfo beanInfo = JavaBeanInfo.build(clazz
+                , type
+                , propertyNamingStrategy
+                , false
+                , TypeUtils.compatibleWithJavaBean
+                , jacksonCompatible
+        );
+
+        if (asmEnable && beanInfo.fields.length > 200) {
+            asmEnable = false;
+        }
+
+        Constructor<?> defaultConstructor = beanInfo.defaultConstructor;
+        if (asmEnable && defaultConstructor == null && !clazz.isInterface()) {
+            asmEnable = false;
+        }
+
+        return checkAsmEligibility_(asmEnable, beanInfo);
+    }
+
+    private boolean checkAsmEligibility_(boolean asmEnable, JavaBeanInfo beanInfo) {
+        for (FieldInfo fieldInfo : beanInfo.fields) {
+            if (fieldInfo.getOnly) {
+                asmEnable = false;
+                break;
+            }
+
+            Class<?> fieldClass = fieldInfo.fieldClass;
+            if (!Modifier.isPublic(fieldClass.getModifiers())) {
+                asmEnable = false;
+                break;
+            }
+
+            if (fieldClass.isMemberClass() && !Modifier.isStatic(fieldClass.getModifiers())) {
+                asmEnable = false;
+                break;
+            }
+
+            if (fieldInfo.getMember() != null //
+		        && !ASMUtils.checkName(fieldInfo.getMember().getName())) {
+                asmEnable = false;
+                break;
+            }
+
+            JSONField annotation = fieldInfo.getAnnotation();
+            if (annotation != null //
+		        && ((!ASMUtils.checkName(annotation.name())) //
+		            || annotation.format().length() != 0 //
+		            || annotation.deserializeUsing() != Void.class //
+		            || annotation.parseFeatures().length != 0 //
+		            || annotation.unwrapped())
+                    || (fieldInfo.method != null && fieldInfo.method.getParameterTypes().length > 1)) {
+                asmEnable = false;
+                break;
+            }
+
+            if (fieldClass.isEnum()) { // EnumDeserializer
+		        ObjectDeserializer fieldDeser = this.getDeserializer(fieldClass);
+                if (!(fieldDeser instanceof EnumDeserializer)) {
+                    asmEnable = false;
+                    break;
+                }
+            }
+        }
+        return asmEnable;
+    }
+
     public FieldDeserializer createFieldDeserializer(ParserConfig mapping, //
                                                      JavaBeanInfo beanInfo, //
                                                      FieldInfo fieldInfo) {
@@ -1092,10 +1153,7 @@ public class ParserConfig {
         Class<?> deserializeUsing = null;
         JSONField annotation = fieldInfo.getAnnotation();
         if (annotation != null) {
-            deserializeUsing = annotation.deserializeUsing();
-            if (deserializeUsing == Void.class) {
-                deserializeUsing = null;
-            }
+            deserializeUsing = getDeserializationClass(annotation);
         }
 
         if (deserializeUsing == null && (fieldClass == List.class || fieldClass == ArrayList.class)) {
@@ -1105,19 +1163,32 @@ public class ParserConfig {
         return new DefaultFieldDeserializer(mapping, clazz, fieldInfo);
     }
 
+    private Class<?> getDeserializationClass(JSONField annotation) {
+        Class<?> deserializeUsing;
+        deserializeUsing = annotation.deserializeUsing();
+        if (deserializeUsing == Void.class) {
+            deserializeUsing = null;
+        }
+        return deserializeUsing;
+    }
+
     public void putDeserializer(Type type, ObjectDeserializer deserializer) {
         Type mixin = JSON.getMixInAnnotations(type);
         if (mixin != null) {
-            IdentityHashMap<Type, ObjectDeserializer> mixInClasses = this.mixInDeserializers.get(type);
-            if (mixInClasses == null) {
-                //多线程下可能会重复创建，但不影响正确性
-                mixInClasses = new IdentityHashMap<Type, ObjectDeserializer>(4);
-                this.mixInDeserializers.put(type, mixInClasses);
-            }
-            mixInClasses.put(mixin, deserializer);
+            registerMixInDeserializer(type, deserializer, mixin);
         } else {
             this.deserializers.put(type, deserializer);
         }
+    }
+
+    private void registerMixInDeserializer(Type type, ObjectDeserializer deserializer, Type mixin) {
+        IdentityHashMap<Type, ObjectDeserializer> mixInClasses = this.mixInDeserializers.get(type);
+        if (mixInClasses == null) {
+            //多线程下可能会重复创建，但不影响正确性
+		    mixInClasses = new IdentityHashMap<Type, ObjectDeserializer>(4);
+            this.mixInDeserializers.put(type, mixInClasses);
+        }
+        mixInClasses.put(mixin, deserializer);
     }
 
     public ObjectDeserializer get(Type type) {
@@ -1154,7 +1225,7 @@ public class ParserConfig {
     /**
      * @deprecated  internal method, dont call
      */
-    public static boolean isPrimitive2(final Class<?> clazz) {
+    public static boolean isPrimitive2(Class<?> clazz) {
         Boolean primitive = clazz.isPrimitive() //
                 || clazz == Boolean.class //
                 || clazz == Character.class //
@@ -1182,16 +1253,20 @@ public class ParserConfig {
      * @param clazz
      * @param fieldCacheMap :map&lt;fieldName ,Field&gt;
      */
-    public static void  parserAllFieldToCache(Class<?> clazz,Map</**fieldName*/String , Field> fieldCacheMap){
+    public static void  parserAllFieldToCache(Class<?> clazz, Map</**fieldName*/String , Field> fieldCacheMap) {
         Field[] fields = clazz.getDeclaredFields();
         for (Field field : fields) {
-            String fieldName = field.getName();
-            if (!fieldCacheMap.containsKey(fieldName)) {
-                fieldCacheMap.put(fieldName, field);
-            }
+            cacheFieldIfAbsent(fieldCacheMap, field);
         }
         if (clazz.getSuperclass() != null && clazz.getSuperclass() != Object.class) {
             parserAllFieldToCache(clazz.getSuperclass(), fieldCacheMap);
+        }
+    }
+
+    private static void cacheFieldIfAbsent(Map<String, Field> fieldCacheMap, Field field) {
+        String fieldName = field.getName();
+        if (!fieldCacheMap.containsKey(fieldName)) {
+            fieldCacheMap.put(fieldName, field);
         }
     }
 
@@ -1207,29 +1282,48 @@ public class ParserConfig {
         }
 
         if (field == null) {
-            char c0 = fieldName.charAt(0);
-            if (c0 >= 'a' && c0 <= 'z') {
-                char[] chars = fieldName.toCharArray();
-                chars[0] -= 32; // lower
-                String fieldNameX = new String(chars);
-                field = fieldCacheMap.get(fieldNameX);
-            }
-
-            if (fieldName.length() > 2) {
-                char c1 = fieldName.charAt(1);
-                if (c0 >= 'a' && c0 <= 'z'
-                        && c1 >= 'A' && c1 <= 'Z') {
-                    for (Map.Entry<String, Field> entry : fieldCacheMap.entrySet()) {
-                        if (fieldName.equalsIgnoreCase(entry.getKey())) {
-                            field = entry.getValue();
-                            break;
-                        }
-                    }
-                }
-            }
+            field = getFieldWithCasingAndLengthCheck(fieldName, fieldCacheMap, field);
         }
 
         return field;
+    }
+
+    private static Field getFieldWithCasingAndLengthCheck(String fieldName, Map<String, Field> fieldCacheMap, Field field) {
+        char c0 = fieldName.charAt(0);
+        if (c0 >= 'a' && c0 <= 'z') {
+            field = getFieldFromCache_(fieldName, fieldCacheMap);
+        }
+
+        if (fieldName.length() > 2) {
+            field = getFieldWithCasingCheck(fieldName, fieldCacheMap, field, c0);
+        }
+        return field;
+    }
+
+    private static Field getFieldWithCasingCheck(String fieldName, Map<String, Field> fieldCacheMap, Field field, char c0) {
+        char c1 = fieldName.charAt(1);
+        if (c0 >= 'a' && c0 <= 'z'
+                && c1 >= 'A' && c1 <= 'Z') {
+            field = getFieldFromCache__(fieldName, fieldCacheMap, field);
+        }
+        return field;
+    }
+
+    private static Field getFieldFromCache__(String fieldName, Map<String, Field> fieldCacheMap, Field field) {
+        for (Map.Entry<String, Field> entry : fieldCacheMap.entrySet()) {
+            if (fieldName.equalsIgnoreCase(entry.getKey())) {
+                field = entry.getValue();
+                break;
+            }
+        }
+        return field;
+    }
+
+    private static Field getFieldFromCache_(String fieldName, Map<String, Field> fieldCacheMap) {
+        char[] chars = fieldName.toCharArray();
+        chars[0] -= 32; // lower
+		String fieldNameX = new String(chars);
+        return fieldCacheMap.get(fieldNameX);
     }
 
     public ClassLoader getDefaultClassLoader() {
@@ -1247,7 +1341,7 @@ public class ParserConfig {
 
         long hash = TypeUtils.fnv1a_64(name);
         if (internalDenyHashCodes == null) {
-            this.internalDenyHashCodes = new long[] {hash};
+            this.internalDenyHashCodes = new long[]{hash};
             return;
         }
 
@@ -1322,7 +1416,7 @@ public class ParserConfig {
             }
         }
 
-        final int safeModeMask = Feature.SafeMode.mask;
+        int safeModeMask = Feature.SafeMode.mask;
         boolean safeMode = this.safeMode
                 || (features & safeModeMask) != 0
                 || (JSON.DEFAULT_PARSER_FEATURE & safeModeMask) != 0;
@@ -1330,7 +1424,7 @@ public class ParserConfig {
             throw new JSONException("safeMode not support autoType : " + typeName);
         }
 
-        final int mask = Feature.SupportAutoType.mask;
+        int mask = Feature.SupportAutoType.mask;
         boolean autoTypeSupport = this.autoTypeSupport
                 || (features & mask) != 0
                 || (JSON.DEFAULT_PARSER_FEATURE & mask) != 0;
@@ -1339,32 +1433,17 @@ public class ParserConfig {
             throw new JSONException("autoType is not support. " + typeName);
         }
 
-        final boolean expectClassFlag;
+        boolean expectClassFlag;
         if (expectClass == null) {
             expectClassFlag = false;
         } else {
-            long expectHash = TypeUtils.fnv1a_64(expectClass.getName());
-            if (expectHash == 0x90a25f5baa21529eL
-                    || expectHash == 0x2d10a5801b9d6136L
-                    || expectHash == 0xaf586a571e302c6bL
-                    || expectHash == 0xed007300a7b227c6L
-                    || expectHash == 0x295c4605fd1eaa95L
-                    || expectHash == 0x47ef269aadc650b4L
-                    || expectHash == 0x6439c4dff712ae8bL
-                    || expectHash == 0xe3dd9875a2dc5283L
-                    || expectHash == 0xe2a8ddba03e69e0dL
-                    || expectHash == 0xd734ceb4c3e9d1daL
-            ) {
-                expectClassFlag = false;
-            } else {
-                expectClassFlag = true;
-            }
+            expectClassFlag = checkClassHashValidity(expectClass);
         }
 
         String className = typeName.replace('$', '.');
         Class<?> clazz;
 
-        final long h1 = (fnv1a_64_magic_hashcode ^ className.charAt(0)) * fnv1a_64_magic_prime;
+        long h1 = (fnv1a_64_magic_hashcode ^ className.charAt(0)) * fnv1a_64_magic_prime;
         if (h1 == 0xaf64164c86024f1aL) { // [
             throw new JSONException("autoType is not support. " + typeName);
         }
@@ -1373,7 +1452,7 @@ public class ParserConfig {
             throw new JSONException("autoType is not support. " + typeName);
         }
 
-        final long h3 = (((((fnv1a_64_magic_hashcode ^ className.charAt(0))
+        long h3 = (((((fnv1a_64_magic_hashcode ^ className.charAt(0))
                 * fnv1a_64_magic_prime)
                 ^ className.charAt(1))
                 * fnv1a_64_magic_prime)
@@ -1381,24 +1460,16 @@ public class ParserConfig {
                 * fnv1a_64_magic_prime;
 
         long fullHash = TypeUtils.fnv1a_64(className);
-        boolean internalWhite = Arrays.binarySearch(INTERNAL_WHITELIST_HASHCODES,  fullHash) >= 0;
+        boolean internalWhite = Arrays.binarySearch(INTERNAL_WHITELIST_HASHCODES, fullHash) >= 0;
 
         if (internalDenyHashCodes != null) {
-            long hash = h3;
-            for (int i = 3; i < className.length(); ++i) {
-                hash ^= className.charAt(i);
-                hash *= fnv1a_64_magic_prime;
-                if (Arrays.binarySearch(internalDenyHashCodes, hash) >= 0) {
-                    throw new JSONException("autoType is not support. " + typeName);
-                }
-            }
+            hashClassName(typeName, className, h3);
         }
 
         if ((!internalWhite) && (autoTypeSupport || expectClassFlag)) {
             long hash = h3;
-            for (int i = 3; i < className.length(); ++i) {
-                hash ^= className.charAt(i);
-                hash *= fnv1a_64_magic_prime;
+            for (int i = 3;i < className.length();++i) {
+                hash = hashClassNameCharacter(className, hash, i);
                 if (Arrays.binarySearch(acceptHashCodes, hash) >= 0) {
                     clazz = TypeUtils.loadClass(typeName, defaultClassLoader, true);
                     if (clazz != null) {
@@ -1434,29 +1505,18 @@ public class ParserConfig {
         }
 
         if (clazz != null) {
-            if (expectClass != null
-                    && clazz != java.util.HashMap.class
-                    && clazz != java.util.LinkedHashMap.class
-                    && !expectClass.isAssignableFrom(clazz)) {
-                throw new JSONException("type not match. " + typeName + " -> " + expectClass.getName());
-            }
-
-            return clazz;
+            return validateTypeMatch(typeName, expectClass, clazz);
         }
 
         if (!autoTypeSupport) {
             long hash = h3;
-            for (int i = 3; i < className.length(); ++i) {
+            for (int i = 3;i < className.length();++i) {
                 char c = className.charAt(i);
                 hash ^= c;
                 hash *= fnv1a_64_magic_prime;
 
                 if (Arrays.binarySearch(denyHashCodes, hash) >= 0) {
-                    if (typeName.endsWith("Exception") || typeName.endsWith("Error")) {
-                        return null;
-                    }
-
-                    throw new JSONException("autoType is not support. " + typeName);
+                    return checkExceptionOrErrorType(typeName);
                 }
 
                 // white list
@@ -1486,10 +1546,7 @@ public class ParserConfig {
                 is = ParserConfig.class.getClassLoader().getResourceAsStream(resource);
             }
             if (is != null) {
-                ClassReader classReader = new ClassReader(is, true);
-                TypeCollector visitor = new TypeCollector("<clinit>", new Class[0]);
-                classReader.accept(visitor);
-                jsonType = visitor.hasJsonType();
+                jsonType = checkJsonType(is);
             }
         } catch (Exception e) {
             // skip
@@ -1504,9 +1561,7 @@ public class ParserConfig {
 
         if (clazz != null) {
             if (jsonType) {
-                if (autoTypeSupport) {
-                    TypeUtils.addMapping(typeName, clazz);
-                }
+                addTypeMappingIfSupported(typeName, autoTypeSupport, clazz);
                 return clazz;
             }
 
@@ -1518,37 +1573,109 @@ public class ParserConfig {
             }
 
             if (expectClass != null) {
-                if (expectClass.isAssignableFrom(clazz)) {
-                    if (autoTypeSupport) {
-                        TypeUtils.addMapping(typeName, clazz);
-                    }
-                    return clazz;
-                } else {
-                    throw new JSONException("type not match. " + typeName + " -> " + expectClass.getName());
-                }
+                return registerTypeIfAssignable(typeName, expectClass, autoTypeSupport, clazz);
             }
 
-            JavaBeanInfo beanInfo = JavaBeanInfo.build(clazz, clazz, propertyNamingStrategy);
-            if (beanInfo.creatorConstructor != null && autoTypeSupport) {
-                throw new JSONException("autoType is not support. " + typeName);
-            }
+            checkAutoTypeSupport(typeName, autoTypeSupport, clazz);
         }
 
         if (!autoTypeSupport) {
-            if (typeName.endsWith("Exception") || typeName.endsWith("Error")) {
-                return null;
-            }
-
-            throw new JSONException("autoType is not support. " + typeName);
-        }
+            return checkExceptionOrErrorType(typeName);}
 
         if (clazz != null) {
-            if (autoTypeSupport) {
-                TypeUtils.addMapping(typeName, clazz);
-            }
+            addTypeMappingIfSupported(typeName, autoTypeSupport, clazz);
         }
 
         return clazz;
+    }
+
+    private void checkAutoTypeSupport(String typeName, boolean autoTypeSupport, Class<?> clazz) {
+        JavaBeanInfo beanInfo = JavaBeanInfo.build(clazz, clazz, propertyNamingStrategy);
+        if (beanInfo.creatorConstructor != null && autoTypeSupport) {
+            throw new JSONException("autoType is not support. " + typeName);
+        }
+    }
+
+    private void hashClassName(String typeName, String className, long h3) {
+        long hash = h3;
+        for (int i = 3;i < className.length();++i) {
+            hash = checkAndHashClassName(typeName, className, hash, i);
+        }
+    }
+
+    private Class<?> registerTypeIfAssignable(String typeName, Class<?> expectClass, boolean autoTypeSupport, Class<?> clazz) {
+        if (!expectClass.isAssignableFrom(clazz)) {
+            throw new JSONException("type not match. " + typeName + " -> " + expectClass.getName());
+        }
+        addTypeMappingIfSupported(typeName, autoTypeSupport, clazz);
+        return clazz;
+    }
+
+    private boolean checkJsonType(InputStream is) throws IOException {
+        ClassReader classReader = new ClassReader(is, true);
+        TypeCollector visitor = new TypeCollector("<clinit>", new Class[0]);
+        classReader.accept(visitor);
+        return visitor.hasJsonType();
+    }
+
+    private Class<?> checkExceptionOrErrorType(String typeName) {
+        if (typeName.endsWith("Exception") || typeName.endsWith("Error")) {
+            return null;
+        }
+
+        throw new JSONException("autoType is not support. " + typeName);
+    }
+
+    private Class<?> validateTypeMatch(String typeName, Class<?> expectClass, Class<?> clazz) {
+        if (expectClass != null
+                && clazz != java.util.HashMap.class
+                && clazz != java.util.LinkedHashMap.class
+                && !expectClass.isAssignableFrom(clazz)) {
+            throw new JSONException("type not match. " + typeName + " -> " + expectClass.getName());
+        }
+
+        return clazz;
+    }
+
+    private long checkAndHashClassName(String typeName, String className, long hash, int i) {
+        hash = hashClassNameCharacter(className, hash, i);
+        if (Arrays.binarySearch(internalDenyHashCodes, hash) >= 0) {
+            throw new JSONException("autoType is not support. " + typeName);
+        }
+        return hash;
+    }
+
+    private boolean checkClassHashValidity(Class<?> expectClass) {
+        boolean expectClassFlag;
+        long expectHash = TypeUtils.fnv1a_64(expectClass.getName());
+        if (expectHash == 0x90a25f5baa21529eL
+                || expectHash == 0x2d10a5801b9d6136L
+                || expectHash == 0xaf586a571e302c6bL
+                || expectHash == 0xed007300a7b227c6L
+                || expectHash == 0x295c4605fd1eaa95L
+                || expectHash == 0x47ef269aadc650b4L
+                || expectHash == 0x6439c4dff712ae8bL
+                || expectHash == 0xe3dd9875a2dc5283L
+                || expectHash == 0xe2a8ddba03e69e0dL
+                || expectHash == 0xd734ceb4c3e9d1daL
+        ) {
+            expectClassFlag = false;
+        } else {
+            expectClassFlag = true;
+        }
+        return expectClassFlag;
+    }
+
+    private void addTypeMappingIfSupported(String typeName, boolean autoTypeSupport, Class<?> clazz) {
+        if (autoTypeSupport) {
+            TypeUtils.addMapping(typeName, clazz);
+        }
+    }
+
+    private long hashClassNameCharacter(String className, long hash, int i) {
+        hash ^= className.charAt(i);
+        hash *= fnv1a_64_magic_prime;
+        return hash;
     }
 
     public void clearDeserializers() {

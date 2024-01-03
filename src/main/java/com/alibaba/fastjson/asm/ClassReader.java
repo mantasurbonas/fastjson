@@ -21,16 +21,7 @@ public class ClassReader {
         {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buf = new byte[1024];
-            for (; ; ) {
-                int len = is.read(buf);
-                if (len == -1) {
-                    break;
-                }
-
-                if (len > 0) {
-                    out.write(buf, 0, len);
-                }
-            }
+            readStreamAndWriteToOutput(is, out, buf);
             is.close();
             this.b = out.toByteArray();
         }
@@ -41,7 +32,7 @@ public class ClassReader {
         strings = new String[n];
         int max = 0;
         int index = 10;
-        for (int i = 1; i < n; ++i) {
+        for (int i = 1;i < n;++i) {
             items[i] = index + 1;
             int size;
             switch (b[index]) {
@@ -81,16 +72,30 @@ public class ClassReader {
         header = index;
     }
 
-    public void accept(final TypeCollector classVisitor) {
+    private void readStreamAndWriteToOutput(InputStream is, ByteArrayOutputStream out, byte[] buf) throws IOException {
+        for (;;) {
+            int len = is.read(buf);
+            if (len == -1) {
+                break;
+            }
+
+            if (len > 0) {
+                out.write(buf, 0, len);
+            }
+        }
+    }
+
+    public void accept(TypeCollector classVisitor) {
         char[] c = new char[maxStringLength]; // buffer used to read strings
-        int i, j; // loop variables
-        int u, v; // indexes in b
+        int i; // loop variables
+        int u;
+        int v; // indexes in b
         int anns = 0;
 
         //read annotations
         if (readAnnotations) {
             u = getAttributes();
-            for (i = readUnsignedShort(u); i > 0; --i) {
+            for (i = readUnsignedShort(u);i > 0;--i) {
                 String attrName = readUTF8(u + 2, c);
                 if ("RuntimeVisibleAnnotations".equals(attrName)) {
                     anns = u + 8;
@@ -104,81 +109,76 @@ public class ClassReader {
         u = header;
         int len = readUnsignedShort(u + 6);
         u += 8;
-        for (i = 0; i < len; ++i) {
+        for (i = 0;i < len;++i) {
             u += 2;
         }
         v = u;
-        i = readUnsignedShort(v);
-        v += 2;
-        for (; i > 0; --i) {
-            j = readUnsignedShort(v + 6);
-            v += 8;
-            for (; j > 0; --j) {
-                v += 6 + readInt(v + 2);
-            }
-        }
-        i = readUnsignedShort(v);
-        v += 2;
-        for (; i > 0; --i) {
-            j = readUnsignedShort(v + 6);
-            v += 8;
-            for (; j > 0; --j) {
-                v += 6 + readInt(v + 2);
-            }
-        }
+        v = readNestedShortsAndInts(v);
+        v = readNestedShortsAndInts(v);
 
         i = readUnsignedShort(v);
         v += 2;
-        for (; i > 0; --i) {
+        for (;i > 0;--i) {
             v += 6 + readInt(v + 2);
         }
 
         if (anns != 0) {
-            for (i = readUnsignedShort(anns), v = anns + 2; i > 0; --i) {
+            for (i = readUnsignedShort(anns), v = anns + 2;i > 0;--i) {
                 String name = readUTF8(v, c);
                 classVisitor.visitAnnotation(name);
             }
         }
 
-        // visits the fields
-        i = readUnsignedShort(u);
-        u += 2;
-        for (; i > 0; --i) {
-            j = readUnsignedShort(u + 6);
-            u += 8;
-            for (; j > 0; --j) {
-                u += 6 + readInt(u + 2);
-            }
-        }
+        u = readNestedShortsAndInts(u);
 
         // visits the methods
         i = readUnsignedShort(u);
         u += 2;
-        for (; i > 0; --i) {
+        for (;i > 0;--i) {
             // inlined in original ASM source, now a method call
             u = readMethod(classVisitor, c, u);
         }
+    }
+
+    private int readNestedShortsAndInts(int v) {
+        int i;
+        int j;
+        i = readUnsignedShort(v);
+        v += 2;
+        for (;i > 0;--i) {
+            j = readUnsignedShort(v + 6);
+            v += 8;
+            for (;j > 0;--j) {
+                v += 6 + readInt(v + 2);
+            }
+        }
+        return v;
     }
 
     private int getAttributes() {
         // skips the header
         int u = header + 8 + readUnsignedShort(header + 6) * 2;
         // skips fields and methods
-        for (int i = readUnsignedShort(u); i > 0; --i) {
-            for (int j = readUnsignedShort(u + 8); j > 0; --j) {
-                u += 6 + readInt(u + 12);
-            }
-            u += 8;
-        }
+        u = calculateUpdatedIndex(u);
         u += 2;
-        for (int i = readUnsignedShort(u); i > 0; --i) {
-            for (int j = readUnsignedShort(u + 8); j > 0; --j) {
-                u += 6 + readInt(u + 12);
-            }
-            u += 8;
-        }
+        u = calculateUpdatedIndex(u);
         // the attribute_info structure starts just after the methods
         return u + 2;
+    }
+
+    private int calculateUpdatedIndex(int u) {
+        for (int i = readUnsignedShort(u);i > 0;--i) {
+            u = calculateOffsetIndex(u);
+        }
+        return u;
+    }
+
+    private int calculateOffsetIndex(int u) {
+        for (int j = readUnsignedShort(u + 8);j > 0;--j) {
+            u += 6 + readInt(u + 12);
+        }
+        u += 8;
+        return u;
     }
 
     private int readMethod(TypeCollector classVisitor, char[] c, int u) {
@@ -196,7 +196,7 @@ public class ClassReader {
         // looks for Code and Exceptions attributes
         j = readUnsignedShort(u + 6);
         u += 8;
-        for (; j > 0; --j) {
+        for (;j > 0;--j) {
             attrName = readUTF8(u, c);
             int attrSize = readInt(u + 2);
             u += 6;
@@ -208,10 +208,9 @@ public class ClassReader {
             u += attrSize;
         }
         // reads declared exceptions
-        if (w == 0) {
-        } else {
+        if (w != 0) {
             w += 2;
-            for (j = 0; j < readUnsignedShort(w); ++j) {
+            for (j = 0;j < readUnsignedShort(w);++j) {
                 w += 2;
             }
         }
@@ -229,7 +228,7 @@ public class ClassReader {
 
             j = readUnsignedShort(v);
             v += 2;
-            for (; j > 0; --j) {
+            for (;j > 0;--j) {
                 v += 8;
             }
             // parses the local variable, line number tables, and code
@@ -238,11 +237,12 @@ public class ClassReader {
             int varTypeTable = 0;
             j = readUnsignedShort(v);
             v += 2;
-            for (; j > 0; --j) {
+            for (;j > 0;--j) {
                 attrName = readUTF8(v, c);
                 if (attrName.equals("LocalVariableTable")) {
                     varTable = v + 6;
-                } else if (attrName.equals("LocalVariableTypeTable")) {
+                }
+                else if (attrName.equals("LocalVariableTypeTable")) {
                     varTypeTable = v + 6;
                 }
                 v += 6 + readInt(v + 2);
@@ -264,7 +264,7 @@ public class ClassReader {
                 }
                 k = readUnsignedShort(varTable);
                 w = varTable + 2;
-                for (; k > 0; --k) {
+                for (;k > 0;--k) {
                     int index = readUnsignedShort(w + 8);
                     mv.visitLocalVariable(readUTF8(w + 4, c), index);
                     w += 10;
@@ -274,18 +274,18 @@ public class ClassReader {
         return u;
     }
 
-    private int readUnsignedShort(final int index) {
+    private int readUnsignedShort(int index) {
         byte[] b = this.b;
         return ((b[index] & 0xFF) << 8) | (b[index + 1] & 0xFF);
     }
 
-    private int readInt(final int index) {
+    private int readInt(int index) {
         byte[] b = this.b;
         return ((b[index] & 0xFF) << 24) | ((b[index + 1] & 0xFF) << 16)
                 | ((b[index + 2] & 0xFF) << 8) | (b[index + 3] & 0xFF);
     }
 
-    private String readUTF8(int index, final char[] buf) {
+    private String readUTF8(int index, char[] buf) {
         int item = readUnsignedShort(index);
         String s = strings[item];
         if (s != null) {
@@ -295,7 +295,7 @@ public class ClassReader {
         return strings[item] = readUTF(index + 2, readUnsignedShort(index), buf);
     }
 
-    private String readUTF(int index, final int utfLen, final char[] buf) {
+    private String readUTF(int index, int utfLen, char[] buf) {
         int endIndex = index + utfLen;
         byte[] b = this.b;
         int strLen = 0;

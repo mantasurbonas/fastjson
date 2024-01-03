@@ -25,11 +25,11 @@ public class SimplePropertyPreFilter implements PropertyPreFilter {
     private final Set<String> excludes = new HashSet<String>();
     private int               maxLevel = 0;
 
-    public SimplePropertyPreFilter(String... properties){
+    public SimplePropertyPreFilter(String... properties) {
         this(null, properties);
     }
 
-    public SimplePropertyPreFilter(Class<?> clazz, String... properties){
+    public SimplePropertyPreFilter(Class<?> clazz, String... properties) {
         super();
         this.clazz = clazz;
         for (String item : properties) {

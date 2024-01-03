@@ -14,20 +14,20 @@ public class PropertyPreFilters {
     private List<MySimplePropertyPreFilter> filters = new ArrayList<MySimplePropertyPreFilter>();
 
 
-    public MySimplePropertyPreFilter addFilter(){
+    public MySimplePropertyPreFilter addFilter() {
         MySimplePropertyPreFilter filter = new MySimplePropertyPreFilter();
         filters.add(filter);
         return filter;
     }
 
-    public MySimplePropertyPreFilter addFilter(String... properties){
+    public MySimplePropertyPreFilter addFilter(String... properties) {
         MySimplePropertyPreFilter filter = new MySimplePropertyPreFilter(properties);
         filters.add(filter);
         return filter;
     }
 
-    public MySimplePropertyPreFilter addFilter(Class<?> clazz, String... properties){
-        MySimplePropertyPreFilter filter = new MySimplePropertyPreFilter(clazz,properties);
+    public MySimplePropertyPreFilter addFilter(Class<?> clazz, String... properties) {
+        MySimplePropertyPreFilter filter = new MySimplePropertyPreFilter(clazz, properties);
         filters.add(filter);
         return filter;
     }
@@ -40,31 +40,32 @@ public class PropertyPreFilters {
         this.filters = filters;
     }
 
-    public MySimplePropertyPreFilter[] toFilters(){
+    public MySimplePropertyPreFilter[] toFilters() {
         return filters.toArray(new MySimplePropertyPreFilter[]{});
     }
 
     public class MySimplePropertyPreFilter extends SimplePropertyPreFilter {
 
-        public MySimplePropertyPreFilter(){}
+        public MySimplePropertyPreFilter() {
+}
 
-        public MySimplePropertyPreFilter(String... properties){
+        public MySimplePropertyPreFilter(String... properties) {
             super(properties);
         }
 
-        public MySimplePropertyPreFilter(Class<?> clazz, String... properties){
-            super(clazz,properties);
+        public MySimplePropertyPreFilter(Class<?> clazz, String... properties) {
+            super(clazz, properties);
         }
 
-        public MySimplePropertyPreFilter addExcludes(String... filters){
-            for (int i = 0; i < filters.length; i++) {
+        public MySimplePropertyPreFilter addExcludes(String... filters) {
+            for (int i = 0;i < filters.length;i++) {
                 this.getExcludes().add(filters[i]);
             }
             return this;
         }
 
-        public MySimplePropertyPreFilter addIncludes(String... filters){
-            for (int i = 0; i < filters.length; i++) {
+        public MySimplePropertyPreFilter addIncludes(String... filters) {
+            for (int i = 0;i < filters.length;i++) {
                 this.getIncludes().add(filters[i]);
             }
             return this;

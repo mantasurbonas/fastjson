@@ -27,7 +27,7 @@ public class Labels {
         private String[] includes;
         private String[] excludes;
 
-        public DefaultLabelFilter(String[] includes, String[] excludes){
+        public DefaultLabelFilter(String[] includes, String[] excludes) {
             if (includes != null) {
                 this.includes = new String[includes.length];
                 System.arraycopy(includes, 0, this.includes, 0, includes.length);

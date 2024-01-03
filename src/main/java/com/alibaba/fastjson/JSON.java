@@ -63,10 +63,10 @@ import com.alibaba.fastjson.util.TypeUtils;
  * @author wenshao[szujobs@hotmail.com]
  */
 public abstract class JSON implements JSONStreamAware, JSONAware {
-    public static TimeZone         defaultTimeZone      = TimeZone.getDefault();
-    public static Locale           defaultLocale        = Locale.getDefault();
-    public static String           DEFAULT_TYPE_KEY     = "@type";
-    static final SerializeFilter[] emptyFilters         = new SerializeFilter[0];
+    public static TimeZone         defaultTimeZone = TimeZone.getDefault();
+    public static Locale           defaultLocale = Locale.getDefault();
+    public static String           DEFAULT_TYPE_KEY = "@type";
+    static final SerializeFilter[] emptyFilters = new SerializeFilter[0];
     public static String           DEFFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
     public static int              DEFAULT_PARSER_FEATURE;
     public static int              DEFAULT_GENERATE_FEATURE;
@@ -100,13 +100,7 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
 
     private static void config(Properties properties) {
         {
-            String featuresProperty = properties.getProperty("fastjson.serializerFeatures.MapSortField");
-            int mask = SerializerFeature.MapSortField.getMask();
-            if ("true".equals(featuresProperty)) {
-                DEFAULT_GENERATE_FEATURE |= mask;
-            } else if ("false".equals(featuresProperty)) {
-                DEFAULT_GENERATE_FEATURE &= ~mask;
-            }
+            configureSerializerFeatures(properties);
         }
 
         {
@@ -128,6 +122,16 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
                 ParserConfig.global.setAsmEnable(false);
                 SerializeConfig.globalInstance.setAsmEnable(false);
             }
+        }
+    }
+
+    private static void configureSerializerFeatures(Properties properties) {
+        String featuresProperty = properties.getProperty("fastjson.serializerFeatures.MapSortField");
+        int mask = SerializerFeature.MapSortField.getMask();
+        if ("true".equals(featuresProperty)) {
+            DEFAULT_GENERATE_FEATURE |= mask;
+        } else if ("false".equals(featuresProperty)) {
+            DEFAULT_GENERATE_FEATURE &= ~mask;
         }
     }
 
@@ -370,25 +374,13 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         }
 
         if (features != null) {
-            for (Feature feature : features) {
-                featureValues |= feature.mask;
-            }
+            featureValues = applyFeatureMasks(featureValues, features);
         }
 
         DefaultJSONParser parser = new DefaultJSONParser(input, config, featureValues);
 
         if (processor != null) {
-            if (processor instanceof ExtraTypeProvider) {
-                parser.getExtraTypeProviders().add((ExtraTypeProvider) processor);
-            }
-
-            if (processor instanceof ExtraProcessor) {
-                parser.getExtraProcessors().add((ExtraProcessor) processor);
-            }
-
-            if (processor instanceof FieldTypeResolver) {
-                parser.setFieldTypeResolver((FieldTypeResolver) processor);
-            }
+            configureProcessor(processor, parser);
         }
 
         T value = (T) parser.parseObject(clazz, null);
@@ -398,6 +390,27 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         parser.close();
 
         return (T) value;
+    }
+
+    private static <T> void configureProcessor(ParseProcess processor, DefaultJSONParser parser) {
+        if (processor instanceof ExtraTypeProvider) {
+            parser.getExtraTypeProviders().add((ExtraTypeProvider) processor);
+        }
+
+        if (processor instanceof ExtraProcessor) {
+            parser.getExtraProcessors().add((ExtraProcessor) processor);
+        }
+
+        if (processor instanceof FieldTypeResolver) {
+            parser.setFieldTypeResolver((FieldTypeResolver) processor);
+        }
+    }
+
+    private static <T> int applyFeatureMasks(int featureValues, Feature... features) {
+        for (Feature feature : features) {
+            featureValues |= feature.mask;
+        }
+        return featureValues;
     }
 
     @SuppressWarnings("unchecked")
@@ -699,20 +712,24 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         SerializeWriter out = new SerializeWriter((Writer) null, defaultFeatures, features);
 
         try {
-            JSONSerializer serializer = new JSONSerializer(out);
-            serializer.write(object);
-            String outString = out.toString();
-            int len = outString.length();
-            if (len > 0
-                    && outString.charAt(len -1) == '.'
-                    && object instanceof Number
-                    && !out.isEnabled(SerializerFeature.WriteClassName)) {
-                return outString.substring(0, len - 1);
-            }
-            return outString;
+            return serializeObjectToString(object, out);
         } finally {
             out.close();
         }
+    }
+
+    private static String serializeObjectToString(Object object, SerializeWriter out) {
+        JSONSerializer serializer = new JSONSerializer(out);
+        serializer.write(object);
+        String outString = out.toString();
+        int len = outString.length();
+        if (len > 0
+                && outString.charAt(len - 1) == '.'
+                && object instanceof Number
+                && !out.isEnabled(SerializerFeature.WriteClassName)) {
+            return outString.substring(0, len - 1);
+        }
+        return outString;
     }
 
     /**
@@ -724,7 +741,7 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
     }
 
     public static String toJSONString(Object object, SerializeFilter filter, SerializerFeature... features) {
-        return toJSONString(object, SerializeConfig.globalInstance, new SerializeFilter[] {filter}, null, DEFAULT_GENERATE_FEATURE, features);
+        return toJSONString(object, SerializeConfig.globalInstance, new SerializeFilter[]{filter}, null, DEFAULT_GENERATE_FEATURE, features);
     }
 
     public static String toJSONString(Object object, SerializeFilter[] filters, SerializerFeature... features) {
@@ -736,7 +753,7 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
     }
 
     public static byte[] toJSONBytes(Object object, SerializeFilter filter, SerializerFeature... features) {
-        return toJSONBytes(object, SerializeConfig.globalInstance, new SerializeFilter[] {filter}, DEFAULT_GENERATE_FEATURE, features);
+        return toJSONBytes(object, SerializeConfig.globalInstance, new SerializeFilter[]{filter}, DEFAULT_GENERATE_FEATURE, features);
     }
     
     /**
@@ -754,7 +771,7 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
                                       SerializeConfig config, //
                                       SerializeFilter filter, //
                                       SerializerFeature... features) {
-        return toJSONString(object, config, new SerializeFilter[] {filter}, null, DEFAULT_GENERATE_FEATURE, features);
+        return toJSONString(object, config, new SerializeFilter[]{filter}, null, DEFAULT_GENERATE_FEATURE, features);
     }
 
     public static String toJSONString(Object object, //
@@ -777,24 +794,33 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         SerializeWriter out = new SerializeWriter(null, defaultFeatures, features);
 
         try {
-            JSONSerializer serializer = new JSONSerializer(out, config);
-            
-            if (dateFormat != null && dateFormat.length() != 0) {
-                serializer.setDateFormat(dateFormat);
-                serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
-            }
-
-            if (filters != null) {
-                for (SerializeFilter filter : filters) {
-                    serializer.addFilter(filter);
-                }
-            }
-
-            serializer.write(object);
-
-            return out.toString();
+            return serializeObject(object, config, filters, dateFormat, out);
         } finally {
             out.close();
+        }
+    }
+
+    private static String serializeObject(Object object, SerializeConfig config, SerializeFilter[] filters, String dateFormat,
+            SerializeWriter out) {
+        JSONSerializer serializer = new JSONSerializer(out, config);
+        
+        if (dateFormat != null && dateFormat.length() != 0) {
+            serializer.setDateFormat(dateFormat);
+            serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
+        }
+
+        if (filters != null) {
+            addSerializeFilters(filters, serializer);
+        }
+
+        serializer.write(object);
+
+        return out.toString();
+    }
+
+    private static void addSerializeFilters(SerializeFilter[] filters, JSONSerializer serializer) {
+        for (SerializeFilter filter : filters) {
+            serializer.addFilter(filter);
         }
     }
 
@@ -827,7 +853,7 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
     }
 
     public static byte[] toJSONBytes(Object object, SerializeConfig config, SerializeFilter filter, SerializerFeature... features) {
-        return toJSONBytes(object, config, new SerializeFilter[] {filter}, DEFAULT_GENERATE_FEATURE, features);
+        return toJSONBytes(object, config, new SerializeFilter[]{filter}, DEFAULT_GENERATE_FEATURE, features);
     }
     
     /**
@@ -857,24 +883,26 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         SerializeWriter out = new SerializeWriter(null, defaultFeatures, features);
 
         try {
-            JSONSerializer serializer = new JSONSerializer(out, config);
-
-            if (dateFormat != null && dateFormat.length() != 0) {
-                serializer.setDateFormat(dateFormat);
-                serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
-            }
-
-            if (filters != null) {
-                for (SerializeFilter filter : filters) {
-                    serializer.addFilter(filter);
-                }
-            }
-
-            serializer.write(object);
-            return out.toBytes(charset);
+            return serializeObjectToBytes(charset, object, config, filters, dateFormat, out);
         } finally {
             out.close();
         }
+    }
+
+    private static byte[] serializeObjectToBytes(Charset charset, Object object, SerializeConfig config, SerializeFilter[] filters,
+            String dateFormat, SerializeWriter out) {
+        JSONSerializer serializer = new JSONSerializer(out, config);
+
+        if (dateFormat != null && dateFormat.length() != 0) {
+            serializer.setDateFormat(dateFormat);
+            serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
+        }
+
+        if (filters != null) {
+            addSerializeFilters(filters, serializer);}
+
+        serializer.write(object);
+        return out.toBytes(charset);
     }
 
     /**
@@ -893,24 +921,26 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         SerializeWriter out = new SerializeWriter(null, defaultFeatures, features);
 
         try {
-            JSONSerializer serializer = new JSONSerializer(out, config);
-
-            if (dateFormat != null && dateFormat.length() != 0) {
-                serializer.setFastJsonConfigDateFormatPattern(dateFormat);
-                serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
-            }
-
-            if (filters != null) {
-                for (SerializeFilter filter : filters) {
-                    serializer.addFilter(filter);
-                }
-            }
-
-            serializer.write(object);
-            return out.toBytes(charset);
+            return serializeObjectToBytes_(charset, object, config, filters, dateFormat, out);
         } finally {
             out.close();
         }
+    }
+
+    private static byte[] serializeObjectToBytes_(Charset charset, Object object, SerializeConfig config, SerializeFilter[] filters,
+            String dateFormat, SerializeWriter out) {
+        JSONSerializer serializer = new JSONSerializer(out, config);
+
+        if (dateFormat != null && dateFormat.length() != 0) {
+            serializer.setFastJsonConfigDateFormatPattern(dateFormat);
+            serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
+        }
+
+        if (filters != null) {
+            addSerializeFilters(filters, serializer);}
+
+        serializer.write(object);
+        return out.toBytes(charset);
     }
 
     public static String toJSONString(Object object, boolean prettyFormat) {
@@ -1010,26 +1040,27 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         SerializeWriter writer = new SerializeWriter(null, defaultFeatures, features);
 
         try {
-            JSONSerializer serializer = new JSONSerializer(writer, config);
-            
-            if (dateFormat != null && dateFormat.length() != 0) {
-                serializer.setDateFormat(dateFormat);
-                serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
-            }
-
-            if (filters != null) {
-                for (SerializeFilter filter : filters) {
-                    serializer.addFilter(filter);
-                }
-            }
-            
-            serializer.write(object);
-            
-            int len = writer.writeToEx(os, charset);
-            return len;
+            return serializeObjectToJSON(os, charset, object, config, filters, dateFormat, writer);
         } finally {
             writer.close();
         }
+    }
+
+    private static int serializeObjectToJSON(OutputStream os, Charset charset, Object object, SerializeConfig config,
+            SerializeFilter[] filters, String dateFormat, SerializeWriter writer) throws IOException {
+        JSONSerializer serializer = new JSONSerializer(writer, config);
+        
+        if (dateFormat != null && dateFormat.length() != 0) {
+            serializer.setDateFormat(dateFormat);
+            serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
+        }
+
+        if (filters != null) {
+            addSerializeFilters(filters, serializer);}
+        
+        serializer.write(object);
+        
+        return writer.writeToEx(os, charset);
     }
 
     public static final int writeJSONStringWithFastJsonConfig(OutputStream os, //
@@ -1043,26 +1074,27 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         SerializeWriter writer = new SerializeWriter(null, defaultFeatures, features);
 
         try {
-            JSONSerializer serializer = new JSONSerializer(writer, config);
-
-            if (dateFormat != null && dateFormat.length() != 0) {
-                serializer.setFastJsonConfigDateFormatPattern(dateFormat);
-                serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
-            }
-
-            if (filters != null) {
-                for (SerializeFilter filter : filters) {
-                    serializer.addFilter(filter);
-                }
-            }
-
-            serializer.write(object);
-
-            int len = writer.writeToEx(os, charset);
-            return len;
+            return serializeObjectToJson(os, charset, object, config, filters, dateFormat, writer);
         } finally {
             writer.close();
         }
+    }
+
+    private static int serializeObjectToJson(OutputStream os, Charset charset, Object object, SerializeConfig config,
+            SerializeFilter[] filters, String dateFormat, SerializeWriter writer) throws IOException {
+        JSONSerializer serializer = new JSONSerializer(writer, config);
+
+        if (dateFormat != null && dateFormat.length() != 0) {
+            serializer.setFastJsonConfigDateFormatPattern(dateFormat);
+            serializer.config(SerializerFeature.WriteDateUseDateFormat, true);
+        }
+
+        if (filters != null) {
+            addSerializeFilters(filters, serializer);}
+
+        serializer.write(object);
+
+        return writer.writeToEx(os, charset);
     }
 
     // ======================================
@@ -1134,42 +1166,11 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         }
 
         if (javaObject instanceof Map) {
-            Map<Object, Object> map = (Map<Object, Object>) javaObject;
-
-            int size = map.size();
-
-            Map innerMap;
-            if (map instanceof LinkedHashMap) {
-                innerMap = new LinkedHashMap(size);
-            } else if (map instanceof TreeMap) {
-                innerMap = new TreeMap();
-            } else {
-                innerMap = new HashMap(size);
-            }
-
-            JSONObject json = new JSONObject(innerMap);
-
-            for (Map.Entry<Object, Object> entry : map.entrySet()) {
-                Object key = entry.getKey();
-                String jsonKey = TypeUtils.castToString(key);
-                Object jsonValue = toJSON(entry.getValue(), config);
-                json.put(jsonKey, jsonValue);
-            }
-
-            return json;
+            return convertMapToJson(javaObject, config);
         }
 
         if (javaObject instanceof Collection) {
-            Collection<Object> collection = (Collection<Object>) javaObject;
-
-            JSONArray array = new JSONArray(collection.size());
-
-            for (Object item : collection) {
-                Object jsonValue = toJSON(item, config);
-                array.add(jsonValue);
-            }
-
-            return array;
+            return convertCollectionToJsonArray(javaObject, config);
         }
 
         if (javaObject instanceof JSONSerializable) {
@@ -1184,17 +1185,7 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         }
 
         if (clazz.isArray()) {
-            int len = Array.getLength(javaObject);
-
-            JSONArray array = new JSONArray(len);
-
-            for (int i = 0; i < len; ++i) {
-                Object item = Array.get(javaObject, i);
-                Object jsonValue = toJSON(item);
-                array.add(jsonValue);
-            }
-
-            return array;
+            return convertArrayToJsonArray(javaObject);
         }
 
         if (ParserConfig.isPrimitive2(clazz)) {
@@ -1203,33 +1194,104 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
 
         ObjectSerializer serializer = config.getObjectWriter(clazz);
         if (serializer instanceof JavaBeanSerializer) {
-            JavaBeanSerializer javaBeanSerializer = (JavaBeanSerializer) serializer;
-
-            JSONType jsonType = javaBeanSerializer.getJSONType();
-            boolean ordered = false;
-            if (jsonType != null) {
-                for (SerializerFeature serializerFeature : jsonType.serialzeFeatures()) {
-                    if (serializerFeature == SerializerFeature.SortField
-                            || serializerFeature == SerializerFeature.MapSortField) {
-                        ordered = true;
-                    }
-                }
-            }
-
-            JSONObject json = new JSONObject(ordered);
-            try {
-                Map<String, Object> values = javaBeanSerializer.getFieldValuesMap(javaObject);
-                for (Map.Entry<String, Object> entry : values.entrySet()) {
-                    json.put(entry.getKey(), toJSON(entry.getValue(), config));
-                }
-            } catch (Exception e) {
-                throw new JSONException("toJSON error", e);
-            }
-            return json;
+            return serializeJavaObject(javaObject, config, serializer);
         }
         
         String text = JSON.toJSONString(javaObject, config);
         return JSON.parse(text);
+    }
+
+    private static Object serializeJavaObject(Object javaObject, SerializeConfig config, ObjectSerializer serializer) {
+        JavaBeanSerializer javaBeanSerializer = (JavaBeanSerializer) serializer;
+
+        JSONType jsonType = javaBeanSerializer.getJSONType();
+        boolean ordered = false;
+        if (jsonType != null) {
+            ordered = checkOrderedSerialization(jsonType, ordered);
+        }
+
+        JSONObject json = new JSONObject(ordered);
+        try {
+            serializeJavaObjectToJson(javaObject, config, javaBeanSerializer, json);
+        } catch (Exception e) {
+            throw new JSONException("toJSON error", e);
+        }
+        return json;
+    }
+
+    private static Object convertMapToJson(Object javaObject, SerializeConfig config) {
+        Map<Object, Object> map = (Map<Object, Object>) javaObject;
+
+        int size = map.size();
+
+        Map innerMap;
+        if (map instanceof LinkedHashMap) {
+            innerMap = new LinkedHashMap(size);
+        } else if (map instanceof TreeMap) {
+            innerMap = new TreeMap();
+        } else {
+            innerMap = new HashMap(size);
+        }
+
+        JSONObject json = new JSONObject(innerMap);
+
+        for (Map.Entry<Object, Object> entry : map.entrySet()) {
+            putEntryToJson(config, json, entry);
+        }
+
+        return json;
+    }
+
+    private static void serializeJavaObjectToJson(Object javaObject, SerializeConfig config, JavaBeanSerializer javaBeanSerializer,
+            JSONObject json) throws Exception {
+        Map<String, Object> values = javaBeanSerializer.getFieldValuesMap(javaObject);
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            json.put(entry.getKey(), toJSON(entry.getValue(), config));
+        }
+    }
+
+    private static boolean checkOrderedSerialization(JSONType jsonType, boolean ordered) {
+        for (SerializerFeature serializerFeature : jsonType.serialzeFeatures()) {
+            if (serializerFeature == SerializerFeature.SortField
+                    || serializerFeature == SerializerFeature.MapSortField) {
+                ordered = true;
+            }
+        }
+        return ordered;
+    }
+
+    private static Object convertArrayToJsonArray(Object javaObject) {
+        int len = Array.getLength(javaObject);
+
+        JSONArray array = new JSONArray(len);
+
+        for (int i = 0;i < len;++i) {
+            Object item = Array.get(javaObject, i);
+            Object jsonValue = toJSON(item);
+            array.add(jsonValue);
+        }
+
+        return array;
+    }
+
+    private static Object convertCollectionToJsonArray(Object javaObject, SerializeConfig config) {
+        Collection<Object> collection = (Collection<Object>) javaObject;
+
+        JSONArray array = new JSONArray(collection.size());
+
+        for (Object item : collection) {
+            Object jsonValue = toJSON(item, config);
+            array.add(jsonValue);
+        }
+
+        return array;
+    }
+
+    private static void putEntryToJson(SerializeConfig config, JSONObject json, Map.Entry<Object, Object> entry) {
+        Object key = entry.getKey();
+        String jsonKey = TypeUtils.castToString(key);
+        Object jsonValue = toJSON(entry.getValue(), config);
+        json.put(jsonKey, jsonValue);
     }
 
     public static <T> T toJavaObject(JSON json, Class<T> clazz) {
@@ -1267,16 +1329,22 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         byte[] chars = bytesLocal.get();
 
         if (chars == null) {
-            if (length <= 1024 * 64) {
-                chars = new byte[1024 * 64];
-                bytesLocal.set(chars);
-            } else {
-                chars = new byte[length];
-            }
+            chars = allocateByteArray(length);
         } else if (chars.length < length) {
             chars = new byte[length];
         }
 
+        return chars;
+    }
+
+    private static byte[] allocateByteArray(int length) {
+        byte[] chars;
+        if (length <= 1024 * 64) {
+            chars = new byte[1024 * 64];
+            bytesLocal.set(chars);
+        } else {
+            chars = new byte[length];
+        }
         return chars;
     }
 
@@ -1285,16 +1353,22 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         char[] chars = charsLocal.get();
 
         if (chars == null) {
-            if (length <= 1024 * 64) {
-                chars = new char[1024 * 64];
-                charsLocal.set(chars);
-            } else {
-                chars = new char[length];
-            }
+            chars = allocateCharArray(length);
         } else if (chars.length < length) {
             chars = new char[length];
         }
 
+        return chars;
+    }
+
+    private static char[] allocateCharArray(int length) {
+        char[] chars;
+        if (length <= 1024 * 64) {
+            chars = new char[1024 * 64];
+            charsLocal.set(chars);
+        } else {
+            chars = new char[length];
+        }
         return chars;
     }
 
@@ -1310,7 +1384,7 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         try {
             lexer.nextToken();
 
-            final int token = lexer.token();
+            int token = lexer.token();
             switch (token) {
                 case JSONToken.LBRACE:
                     if (lexer.getCurrent() == JSONLexer.EOI) {
@@ -1353,21 +1427,29 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
         JSONScanner lexer = new JSONScanner(str);
 
         try {
-            lexer.nextToken();
-            final int token = lexer.token();
-            if (token == JSONToken.LBRACE) {
-                if (lexer.getCurrent() == JSONLexer.EOI) {
-                    return false;
-                }
-                lexer.skipObject(true);
-                return lexer.token() == JSONToken.EOF;
-            }
-            return false;
+            return checkNextTokenIsBrace(lexer);
         } catch (Exception ex) {
             return false;
         } finally {
             lexer.close();
         }
+    }
+
+    private static boolean checkNextTokenIsBrace(JSONScanner lexer) {
+        lexer.nextToken();
+        int token = lexer.token();
+        if (token == JSONToken.LBRACE) {
+            return checkJsonLexerEOF(lexer);
+        }
+        return false;
+    }
+
+    private static boolean checkJsonLexerEOF(JSONScanner lexer) {
+        if (lexer.getCurrent() == JSONLexer.EOI) {
+            return false;
+        }
+        lexer.skipObject(true);
+        return lexer.token() == JSONToken.EOF;
     }
 
     /**
@@ -1380,18 +1462,22 @@ public abstract class JSON implements JSONStreamAware, JSONAware {
 
         JSONScanner lexer = new JSONScanner(str);
         try {
-            lexer.nextToken();
-            final int token = lexer.token();
-            if (token == JSONToken.LBRACKET) {
-                lexer.skipArray(true);
-                return lexer.token() == JSONToken.EOF;
-            }
-            return false;
+            return skipJsonArray(lexer);
         } catch (Exception ex) {
             return false;
         } finally {
             lexer.close();
         }
+    }
+
+    private static boolean skipJsonArray(JSONScanner lexer) {
+        lexer.nextToken();
+        int token = lexer.token();
+        if (token == JSONToken.LBRACKET) {
+            lexer.skipArray(true);
+            return lexer.token() == JSONToken.EOF;
+        }
+        return false;
     }
 
     public static <T> void handleResovleTask(DefaultJSONParser parser, T value) {

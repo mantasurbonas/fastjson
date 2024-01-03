@@ -35,7 +35,7 @@ public class FastJsonViewResponseBodyAdvice implements ResponseBodyAdvice<Object
     }
 
     private FastJsonContainer getOrCreateContainer(Object body) {
-        return (body instanceof FastJsonContainer ? (FastJsonContainer) body : new FastJsonContainer(body));
+        return body instanceof FastJsonContainer ? (FastJsonContainer) body : new FastJsonContainer(body);
 
     }
 
@@ -47,7 +47,7 @@ public class FastJsonViewResponseBodyAdvice implements ResponseBodyAdvice<Object
         FastJsonFilter[] exclude = annotation.exclude();
         PropertyPreFilters filters = new PropertyPreFilters();
         for (FastJsonFilter item : include) {
-            filters.addFilter(item.clazz(),item.props());
+            filters.addFilter(item.clazz(), item.props());
         }
         for (FastJsonFilter item : exclude) {
             filters.addFilter(item.clazz()).addExcludes(item.props());

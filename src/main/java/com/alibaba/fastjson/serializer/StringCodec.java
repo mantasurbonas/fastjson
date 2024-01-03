@@ -49,47 +49,55 @@ public class StringCodec implements ObjectSerializer, ObjectDeserializer {
     @SuppressWarnings("unchecked")
     public <T> T deserialze(DefaultJSONParser parser, Type clazz, Object fieldName) {
         if (clazz == StringBuffer.class) {
-            final JSONLexer lexer = parser.lexer;
-            if (lexer.token() == JSONToken.LITERAL_STRING) {
-                String val = lexer.stringVal();
-                lexer.nextToken(JSONToken.COMMA);
-
-                return (T) new StringBuffer(val);
-            }
-
-            Object value = parser.parse();
-
-            if (value == null) {
-                return null;
-            }
-
-            return (T) new StringBuffer(value.toString());
+            return parseJsonToStringBuffer(parser);
         }
 
         if (clazz == StringBuilder.class) {
-            final JSONLexer lexer = parser.lexer;
-            if (lexer.token() == JSONToken.LITERAL_STRING) {
-                String val = lexer.stringVal();
-                lexer.nextToken(JSONToken.COMMA);
-
-                return (T) new StringBuilder(val);
-            }
-
-            Object value = parser.parse();
-
-            if (value == null) {
-                return null;
-            }
-
-            return (T) new StringBuilder(value.toString());
+            return parseToStringBuilder(parser);
         }
 
         return (T) deserialze(parser);
     }
 
+    private <T> T parseToStringBuilder(DefaultJSONParser parser) {
+        JSONLexer lexer = parser.lexer;
+        if (lexer.token() == JSONToken.LITERAL_STRING) {
+            String val = lexer.stringVal();
+            lexer.nextToken(JSONToken.COMMA);
+
+            return (T) new StringBuilder(val);
+        }
+
+        Object value = parser.parse();
+
+        if (value == null) {
+            return null;
+        }
+
+        return (T) new StringBuilder(value.toString());
+    }
+
+    private <T> T parseJsonToStringBuffer(DefaultJSONParser parser) {
+        JSONLexer lexer = parser.lexer;
+        if (lexer.token() == JSONToken.LITERAL_STRING) {
+            String val = lexer.stringVal();
+            lexer.nextToken(JSONToken.COMMA);
+
+            return (T) new StringBuffer(val);
+        }
+
+        Object value = parser.parse();
+
+        if (value == null) {
+            return null;
+        }
+
+        return (T) new StringBuffer(value.toString());
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> T deserialze(DefaultJSONParser parser) {
-        final JSONLexer lexer = parser.getLexer();
+        JSONLexer lexer = parser.getLexer();
         if (lexer.token() == JSONToken.LITERAL_STRING) {
             String val = lexer.stringVal();
             lexer.nextToken(JSONToken.COMMA);

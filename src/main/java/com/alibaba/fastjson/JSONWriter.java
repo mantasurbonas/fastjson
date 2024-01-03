@@ -18,7 +18,7 @@ public class JSONWriter implements Closeable, Flushable {
 
     private JSONStreamContext context;
 
-    public JSONWriter(Writer out){
+    public JSONWriter(Writer out) {
         writer = new SerializeWriter(out);
         serializer = new JSONSerializer(writer);
     }
@@ -72,7 +72,7 @@ public class JSONWriter implements Closeable, Flushable {
     }
 
     private void beginStructure() {
-        final int state = context.state;
+        int state = context.state;
         switch (context.state) {
             case PropertyKey:
                 writer.write(':');
@@ -150,7 +150,7 @@ public class JSONWriter implements Closeable, Flushable {
             return;
         }
 
-        final int state = context.state;
+        int state = context.state;
         int newState = -1;
         switch (state) {
             case PropertyKey:

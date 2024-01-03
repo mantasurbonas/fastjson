@@ -28,20 +28,20 @@ public class IdentityHashMap<K, V> {
     private final int           indexMask;
     public final static int DEFAULT_SIZE = 8192;
 
-    public IdentityHashMap(){
+    public IdentityHashMap() {
         this(DEFAULT_SIZE);
     }
 
-    public IdentityHashMap(int tableSize){
+    public IdentityHashMap(int tableSize) {
         this.indexMask = tableSize - 1;
         this.buckets = new Entry[tableSize];
     }
 
     public final V get(K key) {
-        final int hash = System.identityHashCode(key);
-        final int bucket = hash & indexMask;
+        int hash = System.identityHashCode(key);
+        int bucket = hash & indexMask;
 
-        for (Entry<K, V> entry = buckets[bucket]; entry != null; entry = entry.next) {
+        for (Entry<K, V> entry = buckets[bucket];entry != null;entry = entry.next) {
             if (key == entry.key) {
                 return (V) entry.value;
             }
@@ -51,17 +51,17 @@ public class IdentityHashMap<K, V> {
     }
 
     public Class findClass(String keyString) {
-        for (int i = 0; i < buckets.length; i++) {
+        for (int i = 0;i < buckets.length;i++) {
             Entry bucket = buckets[i];
 
             if (bucket == null) {
                 continue;
             }
 
-            for (Entry<K, V> entry = bucket; entry != null; entry = entry.next) {
+            for (Entry<K, V> entry = bucket;entry != null;entry = entry.next) {
                 Object key = bucket.key;
                 if (key instanceof Class) {
-                    Class clazz = ((Class) key);
+                    Class clazz = (Class) key;
                     String className = clazz.getName();
                     if (className.equals(keyString)) {
                         return clazz;
@@ -74,10 +74,10 @@ public class IdentityHashMap<K, V> {
     }
 
     public boolean put(K key, V value) {
-        final int hash = System.identityHashCode(key);
-        final int bucket = hash & indexMask;
+        int hash = System.identityHashCode(key);
+        int bucket = hash & indexMask;
 
-        for (Entry<K, V> entry = buckets[bucket]; entry != null; entry = entry.next) {
+        for (Entry<K, V> entry = buckets[bucket];entry != null;entry = entry.next) {
             if (key == entry.key) {
                 entry.value = value;
                 return true;
@@ -98,7 +98,7 @@ public class IdentityHashMap<K, V> {
 
         public final Entry<K, V> next;
 
-        public Entry(K key, V value, int hash, Entry<K, V> next){
+        public Entry(K key, V value, int hash, Entry<K, V> next) {
             this.key = key;
             this.value = value;
             this.next = next;
@@ -113,7 +113,7 @@ public class IdentityHashMap<K, V> {
     public int size() {
         int count = 0;
         for (Entry<K, V> bucket : this.buckets) {
-            for (; bucket != null; bucket = bucket.next) {
+            for (;bucket != null;bucket = bucket.next) {
                 count++;
             }
         }

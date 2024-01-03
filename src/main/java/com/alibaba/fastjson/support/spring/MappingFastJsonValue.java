@@ -73,7 +73,7 @@ public class MappingFastJsonValue implements JSONSerializable {
     public void write(JSONSerializer serializer, Object fieldName, Type fieldType, int features) throws IOException {
         SerializeWriter writer = serializer.out;
 
-        if(jsonpFunction == null){
+        if (jsonpFunction == null) {
             serializer.write(value);
             return;
         }

@@ -24,9 +24,7 @@ public class PropertyProcessableDeserializer implements ObjectDeserializer {
             throw new JSONException("craete instance error");
         }
 
-        Object object =parser.parse(processable, fieldName);
-
-        return (T) object;
+        return (T) parser.parse(processable, fieldName);
     }
 
     public int getFastMatchToken() {

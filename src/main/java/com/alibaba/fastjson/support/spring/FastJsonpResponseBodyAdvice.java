@@ -66,7 +66,7 @@ public class FastJsonpResponseBodyAdvice implements ResponseBodyAdvice<Object> {
      * additional serialization instructions) or simply cast it if already wrapped.
      */
     protected MappingFastJsonValue getOrCreateContainer(Object body) {
-        return (body instanceof MappingFastJsonValue ? (MappingFastJsonValue) body : new MappingFastJsonValue(body));
+        return body instanceof MappingFastJsonValue ? (MappingFastJsonValue) body : new MappingFastJsonValue(body);
     }
 
     /**
@@ -75,6 +75,10 @@ public class FastJsonpResponseBodyAdvice implements ResponseBodyAdvice<Object> {
     public void beforeBodyWriteInternal(MappingFastJsonValue bodyContainer, MediaType contentType,
                                         MethodParameter returnType, ServerHttpRequest request, ServerHttpResponse response) {
         HttpServletRequest servletRequest = ((ServletServerHttpRequest) request).getServletRequest();
+        setJsonpFunctionFromRequest(bodyContainer, servletRequest);
+    }
+
+    private void setJsonpFunctionFromRequest(MappingFastJsonValue bodyContainer, HttpServletRequest servletRequest) {
         for (String name : this.jsonpQueryParamNames) {
             String value = servletRequest.getParameter(name);
             if (value != null) {

@@ -9,7 +9,7 @@ public class FastJsonContainer {
     private Object value;
     private PropertyPreFilters filters;
 
-    FastJsonContainer(Object body){
+    FastJsonContainer(Object body) {
         this.value = body;
     }
 

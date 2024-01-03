@@ -22,33 +22,15 @@ public class OptionalCodec implements ObjectSerializer, ObjectDeserializer {
     public <T> T deserialze(DefaultJSONParser parser, Type type, Object fieldName) {
         
         if (type == OptionalInt.class) {
-            Object obj = parser.parseObject(Integer.class);
-            Integer value = TypeUtils.castToInt(obj);
-            if (value == null) {
-                return (T) OptionalInt.empty();
-            } else {
-                return (T) OptionalInt.of(value);
-            }
+            return parseIntegerToObject(parser);
         }
         
         if (type == OptionalLong.class) {
-            Object obj = parser.parseObject(Long.class);
-            Long value = TypeUtils.castToLong(obj);
-            if (value == null) {
-                return (T) OptionalLong.empty();
-            } else {
-                return (T) OptionalLong.of(value);
-            }
+            return parseLongToObject(parser);
         }
         
         if (type == OptionalDouble.class) {
-            Object obj = parser.parseObject(Double.class);
-            Double value = TypeUtils.castToDouble(obj);
-            if (value == null) {
-                return (T) OptionalDouble.empty();
-            } else {
-                return (T) OptionalDouble.of(value);
-            }
+            return parseDoubleToObject(parser);
         }
         
         type = TypeUtils.unwrapOptional(type);
@@ -59,6 +41,30 @@ public class OptionalCodec implements ObjectSerializer, ObjectDeserializer {
         }
         
         return (T) Optional.of(value);
+    }
+
+    private <T> T parseDoubleToObject(DefaultJSONParser parser) {
+        Object obj = parser.parseObject(Double.class);
+        Double value = TypeUtils.castToDouble(obj);
+        if (value == null)
+            return (T) OptionalDouble.empty();
+        return (T) OptionalDouble.of(value);
+    }
+
+    private <T> T parseLongToObject(DefaultJSONParser parser) {
+        Object obj = parser.parseObject(Long.class);
+        Long value = TypeUtils.castToLong(obj);
+        if (value == null)
+            return (T) OptionalLong.empty();
+        return (T) OptionalLong.of(value);
+    }
+
+    private <T> T parseIntegerToObject(DefaultJSONParser parser) {
+        Object obj = parser.parseObject(Integer.class);
+        Integer value = TypeUtils.castToInt(obj);
+        if (value == null)
+            return (T) OptionalInt.empty();
+        return (T) OptionalInt.of(value);
     }
 
     public int getFastMatchToken() {
@@ -81,39 +87,51 @@ public class OptionalCodec implements ObjectSerializer, ObjectDeserializer {
         }
 
         if (object instanceof OptionalDouble) {
-            OptionalDouble optional = (OptionalDouble) object;
-            if (optional.isPresent()) {
-                double value = optional.getAsDouble();
-                serializer.write(value);
-            } else {
-                serializer.writeNull();
-            }
+            serializeOptionalDouble(serializer, object);
             return;
         }
         
         if (object instanceof OptionalInt) {
-            OptionalInt optional = (OptionalInt) object;
-            if (optional.isPresent()) {
-                int value = optional.getAsInt();
-                serializer.out.writeInt(value);
-            } else {
-                serializer.writeNull();
-            }
+            serializeOptionalInt(serializer, object);
             return;
         }
         
         if (object instanceof OptionalLong) {
-            OptionalLong optional = (OptionalLong) object;
-            if (optional.isPresent()) {
-                long value = optional.getAsLong();
-                serializer.out.writeLong(value);
-            } else {
-                serializer.writeNull();
-            }
+            serializeOptionalLong(serializer, object);
             return;
         }
         
         throw new JSONException("not support optional : " + object.getClass());
+    }
+
+    private void serializeOptionalLong(JSONSerializer serializer, Object object) {
+        OptionalLong optional = (OptionalLong) object;
+        if (optional.isPresent()) {
+            long value = optional.getAsLong();
+            serializer.out.writeLong(value);
+        } else {
+            serializer.writeNull();
+        }
+    }
+
+    private void serializeOptionalInt(JSONSerializer serializer, Object object) {
+        OptionalInt optional = (OptionalInt) object;
+        if (optional.isPresent()) {
+            int value = optional.getAsInt();
+            serializer.out.writeInt(value);
+        } else {
+            serializer.writeNull();
+        }
+    }
+
+    private void serializeOptionalDouble(JSONSerializer serializer, Object object) {
+        OptionalDouble optional = (OptionalDouble) object;
+        if (optional.isPresent()) {
+            double value = optional.getAsDouble();
+            serializer.write(value);
+        } else {
+            serializer.writeNull();
+        }
     }
 
 }

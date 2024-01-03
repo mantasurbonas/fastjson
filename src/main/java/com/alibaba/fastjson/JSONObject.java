@@ -48,36 +48,36 @@ import com.alibaba.fastjson.util.TypeUtils;
  */
 public class JSONObject extends JSON implements Map<String, Object>, Cloneable, Serializable, InvocationHandler {
 
-    private static final long         serialVersionUID         = 1L;
+    private static final long         serialVersionUID = 1L;
     private static final int          DEFAULT_INITIAL_CAPACITY = 16;
 
     private final Map<String, Object> map;
 
-    public JSONObject(){
+    public JSONObject() {
         this(DEFAULT_INITIAL_CAPACITY, false);
     }
 
-    public JSONObject(Map<String, Object> map){
+    public JSONObject(Map<String, Object> map) {
         if (map == null) {
             throw new IllegalArgumentException("map is null.");
         }
         this.map = map;
     }
 
-    public JSONObject(boolean ordered){
+    public JSONObject(boolean ordered) {
         this(DEFAULT_INITIAL_CAPACITY, ordered);
     }
 
-    public JSONObject(int initialCapacity){
+    public JSONObject(int initialCapacity) {
         this(initialCapacity, false);
     }
 
-    public JSONObject(int initialCapacity, boolean ordered){
+    public JSONObject(int initialCapacity, boolean ordered) {
         if (ordered) {
             map = new LinkedHashMap<String, Object>(initialCapacity);
-        } else {
-            map = new HashMap<String, Object>(initialCapacity);
+            return;
         }
+        map = new HashMap<String, Object>(initialCapacity);
     }
 
     public int size() {
@@ -124,7 +124,7 @@ public class JSONObject extends JSON implements Map<String, Object>, Cloneable, 
 
     public Object getOrDefault(Object key, Object defaultValue) {
         Object v;
-        return ((v = get(key)) != null) ? v : defaultValue;
+        return (v = get(key)) != null ? v : defaultValue;
     }
 
     public JSONObject getJSONObject(String key) {
@@ -431,83 +431,105 @@ public class JSONObject extends JSON implements Map<String, Object>, Cloneable, 
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         Class<?>[] parameterTypes = method.getParameterTypes();
         if (parameterTypes.length == 1) {
-            if (method.getName().equals("equals")) {
-                return this.equals(args[0]);
-            }
-
-            Class<?> returnType = method.getReturnType();
-            if (returnType != void.class) {
-                throw new JSONException("illegal setter");
-            }
-
-            String name = null;
-            JSONField annotation = TypeUtils.getAnnotation(method, JSONField.class);
-            if (annotation != null) {
-                if (annotation.name().length() != 0) {
-                    name = annotation.name();
-                }
-            }
-
-            if (name == null) {
-                name = method.getName();
-
-                if (!name.startsWith("set")) {
-                    throw new JSONException("illegal setter");
-                }
-
-                name = name.substring(3);
-                if (name.length() == 0) {
-                    throw new JSONException("illegal setter");
-                }
-                name = Character.toLowerCase(name.charAt(0)) + name.substring(1);
-            }
-
-            map.put(name, args[0]);
-            return null;
+            return handleMethodInvocation(method, args);
         }
 
         if (parameterTypes.length == 0) {
-            Class<?> returnType = method.getReturnType();
-            if (returnType == void.class) {
-                throw new JSONException("illegal getter");
-            }
-
-            String name = null;
-            JSONField annotation = TypeUtils.getAnnotation(method, JSONField.class);
-            if (annotation != null) {
-                if (annotation.name().length() != 0) {
-                    name = annotation.name();
-                }
-            }
-
-            if (name == null) {
-                name = method.getName();
-                if (name.startsWith("get")) {
-                    name = name.substring(3);
-                    if (name.length() == 0) {
-                        throw new JSONException("illegal getter");
-                    }
-                    name = Character.toLowerCase(name.charAt(0)) + name.substring(1);
-                } else if (name.startsWith("is")) {
-                    name = name.substring(2);
-                    if (name.length() == 0) {
-                        throw new JSONException("illegal getter");
-                    }
-                    name = Character.toLowerCase(name.charAt(0)) + name.substring(1);
-                } else if (name.startsWith("hashCode")) {
-                    return this.hashCode();
-                } else if (name.startsWith("toString")) {
-                    return this.toString();
-                } else {
-                    throw new JSONException("illegal getter");
-                }
-            }
-
-            Object value = map.get(name);
-            return TypeUtils.cast(value, method.getGenericReturnType(), ParserConfig.getGlobalInstance());
+            return getAnnotatedValue(method);
         }
 
         throw new UnsupportedOperationException(method.toGenericString());
+    }
+
+    private Object handleMethodInvocation(Method method, Object[] args) {
+        if (method.getName().equals("equals")) {
+            return this.equals(args[0]);
+        }
+
+        Class<?> returnType = method.getReturnType();
+        if (returnType != void.class) {
+            throw new JSONException("illegal setter");
+        }
+
+        String name = getJsonFieldName(method);
+
+        if (name == null) {
+            name = extractSetterName(method);
+        }
+
+        map.put(name, args[0]);
+        return null;
+    }
+
+    private Object getAnnotatedValue(Method method) {
+        Class<?> returnType = method.getReturnType();
+        if (returnType == void.class) {
+            throw new JSONException("illegal getter");
+        }
+
+        String name = null;
+        JSONField annotation = TypeUtils.getAnnotation(method, JSONField.class);
+        if (annotation != null) {
+            if (annotation.name().length() != 0) {
+                name = annotation.name();
+            }
+        }
+
+        if (name == null) {
+            name = method.getName();
+            if (name.startsWith("get")) {
+                name = name.substring(3);
+                name = formatName(name);
+            }
+            else{
+                if (!name.startsWith("is")){
+                    if (name.startsWith("hashCode"))
+                        return this.hashCode();
+                    if (name.startsWith("toString"))
+                        return this.toString();
+                    throw new JSONException("illegal getter");
+                }
+                name = name.substring(2);
+                name = formatName(name);
+            }
+        }
+
+        Object value = map.get(name);
+        return TypeUtils.cast(value, method.getGenericReturnType(), ParserConfig.getGlobalInstance());
+    }
+
+    private String extractSetterName(Method method) {
+        String name;
+        name = method.getName();
+
+        if (!name.startsWith("set")) {
+            throw new JSONException("illegal setter");
+        }
+
+        name = name.substring(3);
+        if (name.length() == 0) {
+            throw new JSONException("illegal setter");
+        }
+        return Character.toLowerCase(name.charAt(0)) + name.substring(1);
+    }
+
+    private String formatName(String name) {
+        if (name.length() == 0) {
+            throw new JSONException("illegal getter");
+        }
+        name = Character.toLowerCase(name.charAt(0)) + name.substring(1);
+        return name;
+    }
+
+    private String getJsonFieldName(Method method) {
+        String name = null;
+        JSONField annotation = TypeUtils.getAnnotation(method, JSONField.class);
+        if (annotation != null) {
+            if (annotation.name().length() != 0) {
+                name = annotation.name();
+            }
+        }
+        return name;
     }
 
     public Map<String, Object> getInnerMap() {

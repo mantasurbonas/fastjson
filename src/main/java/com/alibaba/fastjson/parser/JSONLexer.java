@@ -22,15 +22,15 @@ import java.util.TimeZone;
 
 public interface JSONLexer {
 
-    char EOI            = 0x1A;
-    int  NOT_MATCH      = -1;
+    char EOI = 0x1A;
+    int  NOT_MATCH = -1;
     int  NOT_MATCH_NAME = -2;
-    int  UNKNOWN        = 0;
-    int  OBJECT         = 1;
-    int  ARRAY          = 2;
-    int  VALUE          = 3;
-    int  END            = 4;
-    int  VALUE_NULL     = 5;
+    int  UNKNOWN = 0;
+    int  OBJECT = 1;
+    int  ARRAY = 2;
+    int  VALUE = 3;
+    int  END = 4;
+    int  VALUE_NULL = 5;
 
     int token();
 
@@ -46,9 +46,9 @@ public interface JSONLexer {
 
     char next();
 
-    String scanSymbol(final SymbolTable symbolTable);
+    String scanSymbol(SymbolTable symbolTable);
 
-    String scanSymbol(final SymbolTable symbolTable, final char quote);
+    String scanSymbol(SymbolTable symbolTable, char quote);
 
     void resetStringPosition();
 
@@ -62,7 +62,7 @@ public interface JSONLexer {
 
     Number decimalValue(boolean decimal);
 
-    String scanSymbolUnQuoted(final SymbolTable symbolTable);
+    String scanSymbolUnQuoted(SymbolTable symbolTable);
 
     String stringVal();
 
@@ -105,9 +105,9 @@ public interface JSONLexer {
 
     String scanString(char expectNextChar);
 
-    Enum<?> scanEnum(Class<?> enumClass, final SymbolTable symbolTable, char serperator);
+    Enum<?> scanEnum(Class<?> enumClass, SymbolTable symbolTable, char serperator);
 
-    String scanSymbolWithSeperator(final SymbolTable symbolTable, char serperator);
+    String scanSymbolWithSeperator(SymbolTable symbolTable, char serperator);
 
     void scanStringArray(Collection<String> collection, char seperator);
 

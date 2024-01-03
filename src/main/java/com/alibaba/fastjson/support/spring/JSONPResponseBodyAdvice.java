@@ -49,8 +49,7 @@ public class JSONPResponseBodyAdvice implements ResponseBodyAdvice<Object> {
 
 
         return FastJsonHttpMessageConverter.class.isAssignableFrom(converterType)
-                &&
-                (returnType.getContainingClass().isAnnotationPresent(ResponseJSONP.class) || returnType.hasMethodAnnotation(ResponseJSONP.class));
+                && (returnType.getContainingClass().isAnnotationPresent(ResponseJSONP.class) || returnType.hasMethodAnnotation(ResponseJSONP.class));
     }
 
     public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType,
@@ -58,7 +57,7 @@ public class JSONPResponseBodyAdvice implements ResponseBodyAdvice<Object> {
                                   ServerHttpResponse response) {
 
         ResponseJSONP responseJsonp = returnType.getMethodAnnotation(ResponseJSONP.class);
-        if(responseJsonp == null){
+        if (responseJsonp == null) {
             responseJsonp = returnType.getContainingClass().getAnnotation(ResponseJSONP.class);
         }
 
@@ -66,16 +65,22 @@ public class JSONPResponseBodyAdvice implements ResponseBodyAdvice<Object> {
         String callbackMethodName = servletRequest.getParameter(responseJsonp.callback());
 
         if (!IOUtils.isValidJsonpQueryParam(callbackMethodName)) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Invalid jsonp parameter value:" + callbackMethodName);
-            }
-            callbackMethodName = null;
+            callbackMethodName = invalidateCallbackMethodName(callbackMethodName);
         }
 
         JSONPObject jsonpObject = new JSONPObject(callbackMethodName);
         jsonpObject.addParameter(body);
         beforeBodyWriteInternal(jsonpObject, selectedContentType, returnType, request, response);
         return jsonpObject;
+    }
+
+
+    private String invalidateCallbackMethodName(String callbackMethodName) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Invalid jsonp parameter value:" + callbackMethodName);
+        }
+        callbackMethodName = null;
+        return callbackMethodName;
     }
 
 

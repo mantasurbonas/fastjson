@@ -39,7 +39,7 @@ public class Type {
     /**
      * The <tt>void</tt> type.
      */
-    public static final Type VOID_TYPE    = new Type(0, null, ('V' << 24) | (5 << 16) | (0 << 8) | 0, 1);
+    public static final Type VOID_TYPE = new Type(0, null, ('V' << 24) | (5 << 16) | (0 << 8) | 0, 1);
 
     /**
      * The <tt>boolean</tt> type.
@@ -49,37 +49,37 @@ public class Type {
     /**
      * The <tt>char</tt> type.
      */
-    public static final Type CHAR_TYPE    = new Type(2, null, ('C' << 24) | (0 << 16) | (6 << 8) | 1, 1);
+    public static final Type CHAR_TYPE = new Type(2, null, ('C' << 24) | (0 << 16) | (6 << 8) | 1, 1);
 
     /**
      * The <tt>byte</tt> type.
      */
-    public static final Type BYTE_TYPE    = new Type(3, null, ('B' << 24) | (0 << 16) | (5 << 8) | 1, 1);
+    public static final Type BYTE_TYPE = new Type(3, null, ('B' << 24) | (0 << 16) | (5 << 8) | 1, 1);
 
     /**
      * The <tt>short</tt> type.
      */
-    public static final Type SHORT_TYPE   = new Type(4, null, ('S' << 24) | (0 << 16) | (7 << 8) | 1, 1);
+    public static final Type SHORT_TYPE = new Type(4, null, ('S' << 24) | (0 << 16) | (7 << 8) | 1, 1);
 
     /**
      * The <tt>int</tt> type.
      */
-    public static final Type INT_TYPE     = new Type(5, null, ('I' << 24) | (0 << 16) | (0 << 8) | 1, 1);
+    public static final Type INT_TYPE = new Type(5, null, ('I' << 24) | (0 << 16) | (0 << 8) | 1, 1);
 
     /**
      * The <tt>float</tt> type.
      */
-    public static final Type FLOAT_TYPE   = new Type(6, null, ('F' << 24) | (2 << 16) | (2 << 8) | 1, 1);
+    public static final Type FLOAT_TYPE = new Type(6, null, ('F' << 24) | (2 << 16) | (2 << 8) | 1, 1);
 
     /**
      * The <tt>long</tt> type.
      */
-    public static final Type LONG_TYPE    = new Type(7, null, ('J' << 24) | (1 << 16) | (1 << 8) | 2, 1);
+    public static final Type LONG_TYPE = new Type(7, null, ('J' << 24) | (1 << 16) | (1 << 8) | 2, 1);
 
     /**
      * The <tt>double</tt> type.
      */
-    public static final Type DOUBLE_TYPE  = new Type(8, null, ('D' << 24) | (3 << 16) | (3 << 8) | 2, 1);
+    public static final Type DOUBLE_TYPE = new Type(8, null, ('D' << 24) | (3 << 16) | (3 << 8) | 2, 1);
 
     // ------------------------------------------------------------------------
     // Fields
@@ -111,7 +111,7 @@ public class Type {
     // Constructors
     // ------------------------------------------------------------------------
 
-    private Type(final int sort, final char[] buf, final int off, final int len){
+    private Type(int sort, char[] buf, int off, int len) {
         this.sort = sort;
         this.buf = buf;
         this.off = off;
@@ -124,11 +124,11 @@ public class Type {
      * @param typeDescriptor a type descriptor.
      * @return the Java type corresponding to the given type descriptor.
      */
-    public static Type getType(final String typeDescriptor) {
+    public static Type getType(String typeDescriptor) {
         return getType(typeDescriptor.toCharArray(), 0);
     }
 
-    public static int getArgumentsAndReturnSizes(final String desc) {
+    public static int getArgumentsAndReturnSizes(String desc) {
         int n = 1;
         int c = 1;
         while (true) {
@@ -136,7 +136,8 @@ public class Type {
             if (car == ')') {
                 car = desc.charAt(c);
                 return n << 2 | (car == 'V' ? 0 : (car == 'D' || car == 'J' ? 2 : 1));
-            } else if (car == 'L') {
+            }
+            if (car == 'L') {
                 while (desc.charAt(c++) != ';') {
                 }
                 n += 1;
@@ -147,9 +148,11 @@ public class Type {
 //                if (car == 'D' || car == 'J') {
 //                    n -= 1;
 //                }
-            } else if (car == 'D' || car == 'J') {
+            }
+            else if (car == 'D' || car == 'J') {
                 n += 2;
-            } else {
+            }
+            else {
                 n += 1;
             }
         }
@@ -162,7 +165,7 @@ public class Type {
      * @param off the offset of this descriptor in the previous buffer.
      * @return the Java type corresponding to the given type descriptor.
      */
-    private static Type getType(final char[] buf, final int off) {
+    private static Type getType(char[] buf, int off) {
         int len;
         switch (buf[off]) {
             case 'V':
@@ -184,25 +187,34 @@ public class Type {
             case 'D':
                 return DOUBLE_TYPE;
             case '[':
-                len = 1;
-                while (buf[off + len] == '[') {
-                    ++len;
-                }
-                if (buf[off + len] == 'L') {
-                    ++len;
-                    while (buf[off + len] != ';') {
-                        ++len;
-                    }
-                }
+            len = getArrayDepth(buf, off);
                 return new Type(9 /*ARRAY*/, buf, off, len + 1);
                 // case 'L':
             default:
                 len = 1;
-                while (buf[off + len] != ';') {
-                    ++len;
-                }
+            len = findSemicolonPosition(buf, off, len);
                 return new Type(10/*OBJECT*/, buf, off + 1, len - 1);
         }
+    }
+
+    private static int getArrayDepth(char[] buf, int off) {
+        int len;
+        len = 1;
+        while (buf[off + len] == '[') {
+            ++len;
+        }
+        if (buf[off + len] == 'L') {
+            ++len;
+            len = findSemicolonPosition(buf, off, len);
+        }
+        return len;
+    }
+
+    private static int findSemicolonPosition(char[] buf, int off, int len) {
+        while (buf[off + len] != ';') {
+            ++len;
+        }
+        return len;
     }
 
     public String getInternalName() {
@@ -230,8 +242,23 @@ public class Type {
         return i;
     }
 
-    static Type[] getArgumentTypes(final String methodDescriptor) {
+    static Type[] getArgumentTypes(String methodDescriptor) {
         char[] buf = methodDescriptor.toCharArray();
+        int off;
+        int size = getArraySize(buf);
+
+        Type[] args = new Type[size];
+        off = 1;
+        size = 0;
+        while (buf[off] != ')') {
+            args[size] = getType(buf, off);
+            off += args[size].len + (args[size].sort == 10 /*OBJECT*/ ? 2 : 0);
+            size += 1;
+        }
+        return args;
+    }
+
+    private static int getArraySize(char[] buf) {
         int off = 1;
         int size = 0;
         for (;;) {
@@ -246,16 +273,7 @@ public class Type {
                 ++size;
             }
         }
-
-        Type[] args = new Type[size];
-        off = 1;
-        size = 0;
-        while (buf[off] != ')') {
-            args[size] = getType(buf, off);
-            off += args[size].len + (args[size].sort == 10 /*OBJECT*/ ? 2 : 0);
-            size += 1;
-        }
-        return args;
+        return size;
     }
 
     protected String getClassName() {
@@ -279,15 +297,20 @@ public class Type {
             case 8: //DOUBLE:
                 return "double";
             case 9: //ARRAY:
-                Type elementType = getType(buf, off + getDimensions());
-                StringBuilder b = new StringBuilder(elementType.getClassName());
-                for (int i = getDimensions(); i > 0; --i) {
-                    b.append("[]");
-                }
+			StringBuilder b = getArrayTypeName();
                 return b.toString();
             // case OBJECT:
             default:
                 return new String(buf, off, len).replace('/', '.');
         }
+    }
+
+    private StringBuilder getArrayTypeName() {
+        Type elementType = getType(buf, off + getDimensions());
+        StringBuilder b = new StringBuilder(elementType.getClassName());
+        for (int i = getDimensions();i > 0;--i) {
+            b.append("[]");
+        }
+        return b;
     }
 }

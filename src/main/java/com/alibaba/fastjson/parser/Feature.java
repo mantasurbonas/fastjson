@@ -159,8 +159,8 @@ public enum Feature {
     UseNativeJavaObject
     ;
 
-    Feature(){
-        mask = (1 << ordinal());
+    Feature() {
+        mask = 1 << ordinal();
     }
 
     public final int mask;
@@ -190,7 +190,7 @@ public enum Feature {
         
         int value = 0;
         
-        for (Feature feature: features) {
+        for (Feature feature : features) {
             value |= feature.mask;
         }
         

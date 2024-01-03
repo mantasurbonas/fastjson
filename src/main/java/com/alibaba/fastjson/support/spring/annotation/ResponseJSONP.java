@@ -9,7 +9,7 @@ import java.lang.annotation.*;
  * @see com.alibaba.fastjson.support.spring.JSONPResponseBodyAdvice
  */
 @Documented
-@Target({ElementType.TYPE,ElementType.METHOD})
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @ResponseBody
 public @interface ResponseJSONP {

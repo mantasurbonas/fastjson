@@ -146,7 +146,7 @@ public class Label {
     /**
      * Constructs a new label.
      */
-    public Label(){
+    public Label() {
     }
 
     // ------------------------------------------------------------------------
@@ -165,22 +165,30 @@ public class Label {
      * stored with 2 bytes.
      * @throws IllegalArgumentException if this label has not been created by the given code writer.
      */
-    void put(final MethodWriter owner, final ByteVector out, final int source, boolean wideOffset) {
+    void put(MethodWriter owner, ByteVector out, int source, boolean wideOffset) {
         if ((status & 2 /* RESOLVED */) == 0) {
-            if (wideOffset) {
-                addReference(source, out.length, FORWARD_REFERENCE_TYPE_WIDE);
-                out.putInt(-1);
-            } else {
-                addReference(source, out.length, FORWARD_REFERENCE_TYPE_SHORT);
-                out.putShort(-1);
-            }
-        } else {
-            if (wideOffset) {
-                out.putInt(position - source);
-            } else {
-                out.putShort(position - source);
-            }
+            addWideOrShortReference(out, source, wideOffset);
+            return;
         }
+        putOffset(out, source, wideOffset);
+    }
+
+    private void putOffset(ByteVector out, int source, boolean wideOffset) {
+        if (wideOffset) {
+            out.putInt(position - source);
+            return;
+        }
+        out.putShort(position - source);
+    }
+
+    private void addWideOrShortReference(ByteVector out, int source, boolean wideOffset) {
+        if (wideOffset) {
+            addReference(source, out.length, FORWARD_REFERENCE_TYPE_WIDE);
+            out.putInt(-1);
+            return;
+        }
+        addReference(source, out.length, FORWARD_REFERENCE_TYPE_SHORT);
+        out.putShort(-1);
     }
 
     /**
@@ -192,7 +200,7 @@ public class Label {
      * offset of this forward reference.
      * @param referencePosition the position where the offset for this forward reference must be stored.
      */
-    private void addReference(final int sourcePosition, final int referencePosition, final int referenceType) {
+    private void addReference(int sourcePosition, int referencePosition, int referenceType) {
         if (srcAndRefPositions == null) {
             srcAndRefPositions = new int[6];
         }
@@ -220,25 +228,34 @@ public class Label {
      * @throws IllegalArgumentException if this label has already been resolved, or if it has not been created by the
      * given code writer.
      */
-    void resolve(final MethodWriter owner, final int position, final byte[] data) {
+    void resolve(MethodWriter owner, int position, byte[] data) {
         this.status |= 2 /* RESOLVED */ ;
         this.position = position;
         int i = 0;
         while (i < referenceCount) {
-            int source = srcAndRefPositions[i++];
-            int reference = srcAndRefPositions[i++];
-            int handle = reference & FORWARD_REFERENCE_HANDLE_MASK;
-            int offset = position - source;
-            if ((reference & FORWARD_REFERENCE_TYPE_MASK) == FORWARD_REFERENCE_TYPE_SHORT) {
-                data[handle++] = (byte) (offset >>> 8);
-                data[handle] = (byte) offset;
-            } else {
-                data[handle++] = (byte) (offset >>> 24);
-                data[handle++] = (byte) (offset >>> 16);
-                data[handle++] = (byte) (offset >>> 8);
-                data[handle] = (byte) offset;
-            }
+            i = updateReferenceOffset(position, data, i);
         }
+    }
+
+    private int updateReferenceOffset(int position, byte[] data, int i) {
+        int source = srcAndRefPositions[i++];
+        int reference = srcAndRefPositions[i++];
+        int handle = reference & FORWARD_REFERENCE_HANDLE_MASK;
+        int offset = position - source;
+        if ((reference & FORWARD_REFERENCE_TYPE_MASK) == FORWARD_REFERENCE_TYPE_SHORT) {
+            data[handle++] = (byte) (offset >>> 8);
+            data[handle] = (byte) offset;
+        } else {
+            putBytes(data, handle, offset);
+        }
+        return i;
+    }
+
+    private void putBytes(byte[] data, int handle, int offset) {
+        data[handle++] = (byte) (offset >>> 24);
+        data[handle++] = (byte) (offset >>> 16);
+        data[handle++] = (byte) (offset >>> 8);
+        data[handle] = (byte) offset;
     }
 
 }

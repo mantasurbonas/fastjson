@@ -109,61 +109,41 @@ public final class RyuFloat {
     }
 
     public static int toString(float value, char[] result, int off) {
-        final int FLOAT_MANTISSA_MASK = 8388607; // (1 << 23) - 1;
-        final int FLOAT_EXPONENT_MASK = 255; // (1 << 8) - 1;
-        final int FLOAT_EXPONENT_BIAS = 127; // (1 << (8 - 1)) - 1;
-        final long LOG10_2_NUMERATOR = 3010299; // (long) (10000000L * Math.log10(2));
-        final long LOG10_5_DENOMINATOR = 10000000L;
-        final long LOG10_5_NUMERATOR = 6989700L; // (long) (LOG10_5_DENOMINATOR * Math.log10(5));
+        int FLOAT_MANTISSA_MASK = 8388607; // (1 << 23) - 1;
+        int FLOAT_EXPONENT_MASK = 255; // (1 << 8) - 1;
+        int FLOAT_EXPONENT_BIAS = 127; // (1 << (8 - 1)) - 1;
+        long LOG10_2_NUMERATOR = 3010299; // (long) (10000000L * Math.log10(2));
+        long LOG10_5_DENOMINATOR = 10000000L;
+        long LOG10_5_NUMERATOR = 6989700L; // (long) (LOG10_5_DENOMINATOR * Math.log10(5));
 
 
         // Step 1: Decode the floating point number, and unify normalized and subnormal cases.
         // First, handle all the trivial cases.
         int index = off;
         if (Float.isNaN(value)) {
-            result[index++] = 'N';
-            result[index++] = 'a';
-            result[index++] = 'N';
+            index = insertNaN(result, index);
             return index - off;
         }
 
         if (value == Float.POSITIVE_INFINITY) {
-            result[index++] = 'I';
-            result[index++] = 'n';
-            result[index++] = 'f';
-            result[index++] = 'i';
-            result[index++] = 'n';
-            result[index++] = 'i';
-            result[index++] = 't';
-            result[index++] = 'y';
+            index = insertInfinity(result, index);
             return index - off;
         }
 
         if (value == Float.NEGATIVE_INFINITY) {
             result[index++] = '-';
-            result[index++] = 'I';
-            result[index++] = 'n';
-            result[index++] = 'f';
-            result[index++] = 'i';
-            result[index++] = 'n';
-            result[index++] = 'i';
-            result[index++] = 't';
-            result[index++] = 'y';
+            index = insertInfinity(result, index);
             return index - off;
         }
 
         int bits = Float.floatToIntBits(value);
         if (bits == 0) {
-            result[index++] = '0';
-            result[index++] = '.';
-            result[index++] = '0';
+            index = insertZeroDotZero(result, index);
             return index - off;
         }
         if (bits == 0x80000000) {
             result[index++] = '-';
-            result[index++] = '0';
-            result[index++] = '.';
-            result[index++] = '0';
+            index = insertZeroDotZero(result, index);
             return index - off;
         }
 
@@ -192,9 +172,13 @@ public final class RyuFloat {
 
         // Step 3: Convert to a decimal power base using 128-bit arithmetic.
         // -151 = 1 - 127 - 23 - 2 <= e_2 - 2 <= 254 - 127 - 23 - 2 = 102
-        int dp, dv, dm;
+        int dp;
+        int dv;
+        int dm;
         int e10;
-        boolean dpIsTrailingZeros, dvIsTrailingZeros, dmIsTrailingZeros;
+        boolean dpIsTrailingZeros;
+        boolean dvIsTrailingZeros;
+        boolean dmIsTrailingZeros;
         int lastRemovedDigit = 0;
         if (e2 >= 0) {
             // Compute m * 2^e_2 / 10^q = m * 2^(e_2 - q) / 5^q
@@ -210,11 +194,7 @@ public final class RyuFloat {
                 // We need to know one removed digit even if we are not going to loop below. We could use
                 // q = X - 1 above, except that would require 33 bits for the result, and we've found that
                 // 32-bit arithmetic is faster even on 64-bit machines.
-                int e = q - 1;
-                int l = 59 + (e == 0 ? 1 : (int) ((e * 23219280L + 10000000L - 1) / 10000000L)) - 1;
-                int qx = q - 1, ii = -e2 + q - 1 + l;
-                long mulPow5InvDivPow2 =  (mv * (long) POW5_INV_SPLIT[qx][0] + ((mv * (long) POW5_INV_SPLIT[qx][1]) >> 31)) >> (ii - 31);
-                lastRemovedDigit = (int) (mulPow5InvDivPow2 % 10);
+                lastRemovedDigit = calculateLastRemovedDigit(e2, mv, q);
             }
             e10 = q;
 
@@ -296,12 +276,7 @@ public final class RyuFloat {
 
         int dplength = 10;
         int factor = 1000000000;
-        for (; dplength > 0; dplength--) {
-            if (dp >= factor) {
-                break;
-            }
-            factor /= 10;
-        }
+        dplength = calculateFactorLength(dp, dplength, factor);
         int exp = e10 + dplength - 1;
 
         // Float.toString semantics requires using scientific notation if and only if outside this range.
@@ -342,8 +317,8 @@ public final class RyuFloat {
             // Round down not up if the number ends in X50000 and the number is even.
             lastRemovedDigit = 4;
         }
-        int output = dv +
-                ((dv == dm && !(dmIsTrailingZeros && even)) || (lastRemovedDigit >= 5) ? 1 : 0);
+        int output = dv
+                + ((dv == dm && !(dmIsTrailingZeros && even)) || (lastRemovedDigit >= 5) ? 1 : 0);
         int olength = dplength - removed;
 
         // Step 5: Print the decimal representation.
@@ -354,7 +329,7 @@ public final class RyuFloat {
 
         if (scientificNotation) {
             // Print in the format x.xxxxxE-yy.
-            for (int i = 0; i < olength - 1; i++) {
+            for (int i = 0;i < olength - 1;i++) {
                 int c = output % 10;
                 output /= 10;
                 result[index + olength - i] = (char) ('0' + c);
@@ -380,25 +355,22 @@ public final class RyuFloat {
             // Otherwise follow the Java spec for values in the interval [1E-3, 1E7).
             if (exp < 0) {
                 // Decimal dot is before any of the digits.
-                result[index++] = '0';
-                result[index++] = '.';
-                for (int i = -1; i > exp; i--) {
+                index = insertZeroAndDot(result, index);
+                for (int i = -1;i > exp;i--) {
                     result[index++] = '0';
                 }
                 int current = index;
-                for (int i = 0; i < olength; i++) {
-                    result[current + olength - i - 1] = (char) ('0' + output % 10);
-                    output /= 10;
+                for (int i = 0;i < olength;i++) {
+                    output = insertDigit(result, output, olength, current, i);
                     index++;
                 }
             } else if (exp + 1 >= olength) {
                 // Decimal dot is after any of the digits.
-                for (int i = 0; i < olength; i++) {
-                    result[index + olength - i - 1] = (char) ('0' + output % 10);
-                    output /= 10;
+                for (int i = 0;i < olength;i++) {
+                    output = insertDigit(result, output, olength, index, i);
                 }
                 index += olength;
-                for (int i = olength; i < exp + 1; i++) {
+                for (int i = olength;i < exp + 1;i++) {
                     result[index++] = '0';
                 }
                 result[index++] = '.';
@@ -406,18 +378,88 @@ public final class RyuFloat {
             } else {
                 // Decimal dot is somewhere between the digits.
                 int current = index + 1;
-                for (int i = 0; i < olength; i++) {
+                for (int i = 0;i < olength;i++) {
                     if (olength - i - 1 == exp) {
                         result[current + olength - i - 1] = '.';
                         current--;
                     }
-                    result[current + olength - i - 1] = (char) ('0' + output % 10);
-                    output /= 10;
+                    output = insertDigit(result, output, olength, current, i);
                 }
                 index += olength + 1;
             }
         }
         return index - off;
+    }
+
+    private static int insertNaN(char[] result, int index) {
+        result[index++] = 'N';
+        result[index++] = 'a';
+        result[index++] = 'N';
+        return index;
+    }
+
+	private static int insertZeroAndDot(char[] result, int index) {
+		result[index++] = '0';
+		result[index++] = '.';
+		return index;
+	}
+
+    private static int calculateFactorLength(int dp, int dplength, int factor) {
+        dplength = calculateDpLengthFactor(dp, dplength, factor);
+        return dplength;
+    }
+
+    private static int calculateDpLengthFactor(int dp, int dplength, int factor) {
+        dplength = calculateReducedLength(dp, dplength, factor);
+        return dplength;
+    }
+
+    private static int calculateReducedLength(int dp, int dplength, int factor) {
+        dplength = calculateRemainingLength(dp, dplength, factor);
+        return dplength;
+    }
+
+    private static int calculateRemainingLength(int dp, int dplength, int factor) {
+        for (;dplength > 0;dplength--) {
+            if (dp >= factor) {
+                break;
+            }
+            factor /= 10;
+        }
+        return dplength;
+    }
+
+    private static int calculateLastRemovedDigit(int e2, int mv, int q) {
+        int e = q - 1;
+        int l = 59 + (e == 0 ? 1 : (int) ((e * 23219280L + 10000000L - 1) / 10000000L)) - 1;
+        int qx = q - 1;
+        int ii = -e2 + q - 1 + l;
+        long mulPow5InvDivPow2 = (mv * (long) POW5_INV_SPLIT[qx][0] + ((mv * (long) POW5_INV_SPLIT[qx][1]) >> 31)) >> (ii - 31);
+        return (int) (mulPow5InvDivPow2 % 10);
+    }
+
+    private static int insertDigit(char[] result, int output, int olength, int current, int i) {
+        result[current + olength - i - 1] = (char) ('0' + output % 10);
+        output /= 10;
+        return output;
+    }
+
+    private static int insertZeroDotZero(char[] result, int index) {
+        index = insertZeroAndDot(result, index);
+        result[index++] = '0';
+        return index;
+    }
+
+    private static int insertInfinity(char[] result, int index) {
+        result[index++] = 'I';
+        result[index++] = 'n';
+        result[index++] = 'f';
+        result[index++] = 'i';
+        result[index++] = 'n';
+        result[index++] = 'i';
+        result[index++] = 't';
+        result[index++] = 'y';
+        return index;
     }
 
 }

@@ -74,7 +74,7 @@ public class MethodWriter implements MethodVisitor {
     /**
      * The bytecode of this method.
      */
-    private ByteVector code                                    = new ByteVector();
+    private ByteVector code = new ByteVector();
 
     /**
      * Maximum stack size of this method.
@@ -99,7 +99,7 @@ public class MethodWriter implements MethodVisitor {
     // Constructor
     // ------------------------------------------------------------------------
 
-    public MethodWriter(final ClassWriter cw, final int access, final String name, final String desc, final String signature, final String[] exceptions){
+    public MethodWriter(ClassWriter cw, int access, String name, String desc, String signature, String[] exceptions) {
         if (cw.firstMethod == null) {
             cw.firstMethod = this;
         } else {
@@ -112,11 +112,15 @@ public class MethodWriter implements MethodVisitor {
         this.desc = cw.newUTF8(desc);
 
         if (exceptions != null && exceptions.length > 0) {
-            exceptionCount = exceptions.length;
-            this.exceptions = new int[exceptionCount];
-            for (int i = 0; i < exceptionCount; ++i) {
-                this.exceptions[i] = cw.newClassItem(exceptions[i]).index;
-            }
+            initializeExceptions(cw, exceptions);
+        }
+    }
+
+    private void initializeExceptions(ClassWriter cw, String[] exceptions) {
+        exceptionCount = exceptions.length;
+        this.exceptions = new int[exceptionCount];
+        for (int i = 0;i < exceptionCount;++i) {
+            this.exceptions[i] = cw.newClassItem(exceptions[i]).index;
         }
     }
 
@@ -124,14 +128,14 @@ public class MethodWriter implements MethodVisitor {
     // Implementation of the MethodVisitor interface
     // ------------------------------------------------------------------------
 
-    public void visitInsn(final int opcode) {
+    public void visitInsn(int opcode) {
         // adds the instruction to the bytecode of the method
         code.putByte(opcode);
         // update currentBlock
         // Label currentBlock = this.currentBlock;
     }
 
-    public void visitIntInsn(final int opcode, final int operand) {
+    public void visitIntInsn(int opcode, int operand) {
         // Label currentBlock = this.currentBlock;
         // adds the instruction to the bytecode of the method
         // if (opcode == Opcodes.SIPUSH) {
@@ -141,80 +145,90 @@ public class MethodWriter implements MethodVisitor {
         // }
     }
 
-    public void visitVarInsn(final int opcode, final int var) {
+    public void visitVarInsn(int opcode, int var) {
         // Label currentBlock = this.currentBlock;
         // adds the instruction to the bytecode of the method
         if (var < 4 && opcode != Opcodes.RET) {
-            int opt;
-            if (opcode < Opcodes.ISTORE) {
-                /* ILOAD_0 */
-                opt = 26 + ((opcode - Opcodes.ILOAD) << 2) + var;
-            } else {
-                /* ISTORE_0 */
-                opt = 59 + ((opcode - Opcodes.ISTORE) << 2) + var;
-            }
-            code.putByte(opt);
-        } else if (var >= 256) {
+            visitOpcodeInsn(opcode, var);
+            return;
+        }
+        if (var >= 256) {
             code.putByte(196 /* WIDE */).put12(opcode, var);
-        } else {
+        }
+        else {
             code.put11(opcode, var);
         }
     }
 
-    public void visitTypeInsn(final int opcode, final String type) {
+    private void visitOpcodeInsn(int opcode, int var) {
+        int opt;
+        if (opcode < Opcodes.ISTORE) {
+            /* ILOAD_0 */
+		    opt = 26 + ((opcode - Opcodes.ILOAD) << 2) + var;
+        } else {
+            /* ISTORE_0 */
+		    opt = 59 + ((opcode - Opcodes.ISTORE) << 2) + var;
+        }
+        code.putByte(opt);
+    }
+
+    public void visitTypeInsn(int opcode, String type) {
         Item i = cw.newClassItem(type);
         // Label currentBlock = this.currentBlock;
         // adds the instruction to the bytecode of the method
         code.put12(opcode, i.index);
     }
 
-    public void visitFieldInsn(final int opcode, final String owner, final String name, final String desc) {
+    public void visitFieldInsn(int opcode, String owner, String name, String desc) {
         Item i = cw.newFieldItem(owner, name, desc);
         // Label currentBlock = this.currentBlock;
         // adds the instruction to the bytecode of the method
         code.put12(opcode, i.index);
     }
 
-    public void visitMethodInsn(final int opcode, final String owner, final String name, final String desc) {
+    public void visitMethodInsn(int opcode, String owner, String name, String desc) {
         boolean itf = opcode == Opcodes.INVOKEINTERFACE;
         Item i = cw.newMethodItem(owner, name, desc, itf);
         int argSize = i.intVal;
         // Label currentBlock = this.currentBlock;
         // adds the instruction to the bytecode of the method
         if (itf) {
-            if (argSize == 0) {
-                argSize = Type.getArgumentsAndReturnSizes(desc);
-                i.intVal = argSize;
-            }
-            code.put12(Opcodes.INVOKEINTERFACE, i.index).put11(argSize >> 2, 0);
+            invokeInterfaceMethod(desc, i, argSize);
         } else {
             code.put12(opcode, i.index);
         }
     }
 
-    public void visitJumpInsn(final int opcode, final Label label) {
+    private void invokeInterfaceMethod(String desc, Item i, int argSize) {
+        if (argSize == 0) {
+            argSize = Type.getArgumentsAndReturnSizes(desc);
+            i.intVal = argSize;
+        }
+        code.put12(Opcodes.INVOKEINTERFACE, i.index).put11(argSize >> 2, 0);
+    }
+
+    public void visitJumpInsn(int opcode, Label label) {
         // Label currentBlock = this.currentBlock;
         // adds the instruction to the bytecode of the method
         if ((label.status & 2 /* Label.RESOLVED */ ) != 0 && label.position - code.length < Short.MIN_VALUE) {
             throw new UnsupportedOperationException();
-        } else {
-            /*
-             * case of a backward jump with an offset >= -32768, or of a forward jump with, of course, an unknown
-             * offset. In these cases we store the offset in 2 bytes (which will be increased in resizeInstructions, if
-             * needed).
-             */
-            code.putByte(opcode);
-            // Currently, GOTO_W is the only supported wide reference
-            label.put(this, code, code.length - 1, opcode == Opcodes.GOTO_W);
         }
+        /*
+         * case of a backward jump with an offset >= -32768, or of a forward jump with, of course, an unknown
+         * offset. In these cases we store the offset in 2 bytes (which will be increased in resizeInstructions, if
+         * needed).
+         */
+        code.putByte(opcode);
+        // Currently, GOTO_W is the only supported wide reference
+        label.put(this, code, code.length - 1, opcode == Opcodes.GOTO_W);
     }
 
-    public void visitLabel(final Label label) {
+    public void visitLabel(Label label) {
         // resolves previous forward references to label, if any
         label.resolve(this, code.length, code.data);
     }
 
-    public void visitLdcInsn(final Object cst) {
+    public void visitLdcInsn(Object cst) {
         Item i = cw.newConstItem(cst);
         // Label currentBlock = this.currentBlock;
         // adds the instruction to the bytecode of the method
@@ -228,16 +242,16 @@ public class MethodWriter implements MethodVisitor {
         }
     }
 
-    public void visitIincInsn(final int var, final int increment) {
+    public void visitIincInsn(int var, int increment) {
         // adds the instruction to the bytecode of the method
 //        if ((var > 255) || (increment > 127) || (increment < -128)) {
 //            code.putByte(196 /* WIDE */).put12(Opcodes.IINC, var).putShort(increment);
 //        } else {
-            code.putByte(132 /* Opcodes.IINC*/ ).put11(var, increment);
+            code.putByte(132 /* Opcodes.IINC*/).put11(var, increment);
 //        }
     }
 
-    public void visitMaxs(final int maxStack, final int maxLocals) {
+    public void visitMaxs(int maxStack, int maxLocals) {
         this.maxStack = maxStack;
         this.maxLocals = maxLocals;
     }
@@ -280,8 +294,8 @@ public class MethodWriter implements MethodVisitor {
      * 
      * @param out the byte vector into which the bytecode of this method must be copied.
      */
-    final void put(final ByteVector out) {
-        final int mask = 393216; //Opcodes.ACC_DEPRECATED | ClassWriter.ACC_SYNTHETIC_ATTRIBUTE | ((access & ClassWriter.ACC_SYNTHETIC_ATTRIBUTE) / (ClassWriter.ACC_SYNTHETIC_ATTRIBUTE / Opcodes.ACC_SYNTHETIC));
+    final void put(ByteVector out) {
+        int mask = 393216; //Opcodes.ACC_DEPRECATED | ClassWriter.ACC_SYNTHETIC_ATTRIBUTE | ((access & ClassWriter.ACC_SYNTHETIC_ATTRIBUTE) / (ClassWriter.ACC_SYNTHETIC_ATTRIBUTE / Opcodes.ACC_SYNTHETIC));
         out.putShort(access & ~mask).putShort(name).putShort(desc);
         int attributeCount = 0;
         if (code.length > 0) {
@@ -293,22 +307,31 @@ public class MethodWriter implements MethodVisitor {
 
         out.putShort(attributeCount);
         if (code.length > 0) {
-            int size = 12 + code.length + 8 * 0; // handlerCount
-            out.putShort(cw.newUTF8("Code")).putInt(size);
-            out.putShort(maxStack).putShort(maxLocals);
-            out.putInt(code.length).putByteArray(code.data, 0, code.length);
-            out.putShort(0); // handlerCount
-            attributeCount = 0;
-            out.putShort(attributeCount);
+            putCodeAttributes(out);
         }
         if (exceptionCount > 0) {
-            out.putShort(cw.newUTF8("Exceptions")).putInt(2 * exceptionCount + 2);
-            out.putShort(exceptionCount);
-            for (int i = 0; i < exceptionCount; ++i) {
-                out.putShort(exceptions[i]);
-            }
+            putExceptionData(out);
         }
 
+    }
+
+    private void putExceptionData(ByteVector out) {
+        out.putShort(cw.newUTF8("Exceptions")).putInt(2 * exceptionCount + 2);
+        out.putShort(exceptionCount);
+        for (int i = 0;i < exceptionCount;++i) {
+            out.putShort(exceptions[i]);
+        }
+    }
+
+    private void putCodeAttributes(ByteVector out) {
+        int attributeCount;
+        int size = 12 + code.length + 8 * 0; // handlerCount
+		out.putShort(cw.newUTF8("Code")).putInt(size);
+        out.putShort(maxStack).putShort(maxLocals);
+        out.putInt(code.length).putByteArray(code.data, 0, code.length);
+        out.putShort(0); // handlerCount
+		attributeCount = 0;
+        out.putShort(attributeCount);
     }
 
 }

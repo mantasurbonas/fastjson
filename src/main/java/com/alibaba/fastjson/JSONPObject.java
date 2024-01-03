@@ -55,13 +55,17 @@ public class JSONPObject implements JSONSerializable {
 
         writer.write(function);
         writer.write('(');
-        for (int i = 0; i < parameters.size(); ++i) {
-            if (i != 0) {
-                writer.write(',');
-            }
-            serializer.write(parameters.get(i));
+        for (int i = 0;i < parameters.size();++i) {
+            writeParameter(serializer, writer, i);
         }
         writer.write(')');
+    }
+
+    private void writeParameter(JSONSerializer serializer, SerializeWriter writer, int i) {
+        if (i != 0) {
+            writer.write(',');
+        }
+        serializer.write(parameters.get(i));
     }
 
     public String toString() {

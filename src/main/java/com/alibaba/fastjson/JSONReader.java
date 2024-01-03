@@ -26,22 +26,22 @@ public class JSONReader implements Closeable {
     private JSONStreamContext       context;
     private transient JSONStreamContext lastContext;
 
-    public JSONReader(Reader reader){
+    public JSONReader(Reader reader) {
         this(reader, new Feature[0]);
     }
     
-    public JSONReader(Reader reader, Feature... features){
+    public JSONReader(Reader reader, Feature... features) {
         this(new JSONReaderScanner(reader));
         for (Feature feature : features) {
             this.config(feature, true);
         }
     }
 
-    public JSONReader(JSONLexer lexer){
+    public JSONReader(JSONLexer lexer) {
         this(new DefaultJSONParser(lexer));
     }
 
-    public JSONReader(DefaultJSONParser parser){
+    public JSONReader(DefaultJSONParser parser) {
         this.parser = parser;
     }
     
@@ -69,19 +69,27 @@ public class JSONReader implements Closeable {
         if (context == null) {
             context = new JSONStreamContext(null, JSONStreamContext.StartObject);
         } else {
-            startStructure();
-            if (lastContext != null
-                    && lastContext.parent == context) {
-                context = lastContext;
-                if (context.state != JSONStreamContext.StartObject) {
-                    context.state = JSONStreamContext.StartObject;
-                }
-            } else {
-                context = new JSONStreamContext(context, JSONStreamContext.StartObject);
-            }
+            startObjectStructure();
         }
 
         this.parser.accept(JSONToken.LBRACE, JSONToken.IDENTIFIER);
+    }
+
+    private void startObjectStructure() {
+        startStructure();
+        if (lastContext != null
+                && lastContext.parent == context) {
+            startObject_();
+        } else {
+            context = new JSONStreamContext(context, JSONStreamContext.StartObject);
+        }
+    }
+
+    private void startObject_() {
+        context = lastContext;
+        if (context.state != JSONStreamContext.StartObject) {
+            context.state = JSONStreamContext.StartObject;
+        }
     }
 
     public void endObject() {
@@ -106,7 +114,7 @@ public class JSONReader implements Closeable {
     }
 
     private void startStructure() {
-        final int state = context.state;
+        int state = context.state;
         switch (state) {
             case PropertyKey:
                 parser.accept(JSONToken.COLON);
@@ -131,7 +139,7 @@ public class JSONReader implements Closeable {
             return;
         }
         
-        final int state = context.state;
+        int state = context.state;
         int newState = -1;
         switch (state) {
             case PropertyKey:
@@ -157,8 +165,8 @@ public class JSONReader implements Closeable {
             throw new JSONException("context is null");
         }
 
-        final int token = parser.lexer.token();
-        final int state = context.state;
+        int token = parser.lexer.token();
+        int state = context.state;
         switch (state) {
             case StartArray:
             case ArrayValue:
@@ -210,18 +218,24 @@ public class JSONReader implements Closeable {
         if (context == null) {
             object = parser.parse();
         } else {
-            readBefore();
-            JSONLexer lexer = parser.lexer;
-            if (context.state == JSONStreamContext.StartObject && lexer.token() == JSONToken.IDENTIFIER) {
-                object = lexer.stringVal();
-                lexer.nextToken();
-            } else {
-                object = parser.parse();
-            }
-            readAfter();
+            object = parseJsonObject();
         }
 
         return TypeUtils.castToString(object);
+    }
+
+    private Object parseJsonObject() {
+        Object object;
+        readBefore();
+        JSONLexer lexer = parser.lexer;
+        if (context.state == JSONStreamContext.StartObject && lexer.token() == JSONToken.IDENTIFIER) {
+            object = lexer.stringVal();
+            lexer.nextToken();
+        } else {
+            object = parser.parse();
+        }
+        readAfter();
+        return object;
     }
     
     public <T> T readObject(TypeReference<T> typeRef) {

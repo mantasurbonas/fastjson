@@ -19,10 +19,7 @@ public class EnumerationSerializer implements ObjectSerializer {
         
         Type elementType = null;
         if (out.isEnabled(SerializerFeature.WriteClassName)) {
-            if (fieldType instanceof ParameterizedType) {
-                ParameterizedType param = (ParameterizedType) fieldType;
-                elementType = param.getActualTypeArguments()[0];
-            }
+            elementType = getElementType(fieldType, elementType);
         }
         
         Enumeration<?> e = (Enumeration<?>) object;
@@ -31,25 +28,46 @@ public class EnumerationSerializer implements ObjectSerializer {
         serializer.setContext(context, object, fieldName, 0);
 
         try {
-            int i = 0;
-            out.append('[');
-            while (e.hasMoreElements()) {
-                Object item = e.nextElement();
-                if (i++ != 0) {
-                    out.append(',');
-                }
-
-                if (item == null) {
-                    out.writeNull();
-                    continue;
-                }
-
-                ObjectSerializer itemSerializer = serializer.getObjectWriter(item.getClass());
-                itemSerializer.write(serializer, item, i - 1, elementType, 0);
-            }
-            out.append(']');
+            serializeEnumerationWrapper(serializer, out, elementType, e);
         } finally {
             serializer.context = context;
         }
+    }
+
+    private void serializeEnumerationWrapper(JSONSerializer serializer, SerializeWriter out, Type elementType, Enumeration<?> e)
+            throws IOException {
+        int i = 0;
+        out.append('[');
+        serializeEnumeration(serializer, out, elementType, e, i);
+        out.append(']');
+    }
+
+    private void serializeEnumeration(JSONSerializer serializer, SerializeWriter out, Type elementType, Enumeration<?> e, int i)
+            throws IOException {
+        while (e.hasMoreElements())
+            i = serializeNextElement(serializer, out, elementType, e, i);
+    }
+
+    private int serializeNextElement(JSONSerializer serializer, SerializeWriter out, Type elementType, Enumeration<?> e, int i)
+            throws IOException {
+        Object item = e.nextElement();
+        if (i++ != 0) {
+            out.append(',');
+        }
+        if (item == null) {
+            out.writeNull();
+            return i;
+        }
+        ObjectSerializer itemSerializer = serializer.getObjectWriter(item.getClass());
+        itemSerializer.write(serializer, item, i - 1, elementType, 0);
+        return i;
+    }
+
+    private Type getElementType(Type fieldType, Type elementType) {
+        if (fieldType instanceof ParameterizedType) {
+            ParameterizedType param = (ParameterizedType) fieldType;
+            elementType = param.getActualTypeArguments()[0];
+        }
+        return elementType;
     }
 }

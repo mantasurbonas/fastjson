@@ -11,14 +11,14 @@ public class TypeCollector {
 
     private static final Map<String, String> primitives = new HashMap<String, String>() {
         {
-            put("int","I");
-            put("boolean","Z");
+            put("int", "I");
+            put("boolean", "Z");
             put("byte", "B");
-            put("char","C");
-            put("short","S");
-            put("float","F");
-            put("long","J");
-            put("double","D");
+            put("char", "C");
+            put("short", "S");
+            put("float", "F");
+            put("long", "J");
+            put("double", "D");
         }
     };
 
@@ -48,16 +48,13 @@ public class TypeCollector {
         Type[] argTypes = Type.getArgumentTypes(desc);
         int longOrDoubleQuantity = 0;
         for (Type t : argTypes) {
-            String className = t.getClassName();
-            if (className.equals("long") || className.equals("double")) {
-                longOrDoubleQuantity++;
-            }
+            longOrDoubleQuantity = incrementIfLongOrDouble(longOrDoubleQuantity, t);
         }
 
         if (argTypes.length != this.parameterTypes.length) {
             return null;
         }
-        for (int i = 0; i < argTypes.length; i++) {
+        for (int i = 0;i < argTypes.length;i++) {
             if (!correctTypeName(argTypes[i], this.parameterTypes[i].getName())) {
                 return null;
             }
@@ -66,6 +63,14 @@ public class TypeCollector {
         return collector = new MethodCollector(
                 Modifier.isStatic(access) ? 0 : 1,
                 argTypes.length + longOrDoubleQuantity);
+    }
+
+    private int incrementIfLongOrDouble(int longOrDoubleQuantity, Type t) {
+        String className = t.getClassName();
+        if (className.equals("long") || className.equals("double")) {
+            longOrDoubleQuantity++;
+        }
+        return longOrDoubleQuantity;
     }
 
     public void visitAnnotation(String desc) {
@@ -83,13 +88,18 @@ public class TypeCollector {
             s = s.substring(0, s.length() - 2);
         }
         if (braces.length() != 0) {
-            if (primitives.containsKey(s)) {
-                s = braces.append(primitives.get(s)).toString();
-            } else {
-                s = braces.append('L').append(s).append(';').toString();
-            }
+            s = appendPrimitiveOrReferenceType(s, braces);
         }
         return s.equals(paramTypeName);
+    }
+
+    private String appendPrimitiveOrReferenceType(String s, StringBuilder braces) {
+        if (primitives.containsKey(s)) {
+            s = braces.append(primitives.get(s)).toString();
+        } else {
+            s = braces.append('L').append(s).append(';').toString();
+        }
+        return s;
     }
 
     public String[] getParameterNamesForMethod() {

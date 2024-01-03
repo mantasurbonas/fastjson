@@ -42,13 +42,13 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
     protected BeanContext         fieldContext;
 
     private String                format;
-    protected boolean             writeEnumUsingToString  = false;
-    protected boolean             writeEnumUsingName      = false;
+    protected boolean             writeEnumUsingToString = false;
+    protected boolean             writeEnumUsingName = false;
     protected boolean             disableCircularReferenceDetect = false;
 
-    protected boolean             serializeUsing          = false;
+    protected boolean             serializeUsing = false;
 
-    protected boolean             persistenceXToMany      = false; // OneToMany or ManyToMany
+    protected boolean             persistenceXToMany = false; // OneToMany or ManyToMany
     protected boolean             browserCompatible;
 
     private RuntimeSerializerInfo runtimeInfo;
@@ -58,23 +58,7 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
         this.fieldContext = new BeanContext(beanType, fieldInfo);
 
         if (beanType != null) {
-            JSONType jsonType = TypeUtils.getAnnotation(beanType,JSONType.class);
-            if (jsonType != null) {
-                for (SerializerFeature feature : jsonType.serialzeFeatures()) {
-                    if (feature == SerializerFeature.WriteEnumUsingToString) {
-                        writeEnumUsingToString = true;
-                    } else if(feature == SerializerFeature.WriteEnumUsingName){
-                        writeEnumUsingName = true;
-                    } else if(feature == SerializerFeature.DisableCircularReferenceDetect){
-                        disableCircularReferenceDetect = true;
-                    } else if(feature == SerializerFeature.BrowserCompatible){
-                        features |= SerializerFeature.BrowserCompatible.mask;
-                        browserCompatible = true;
-                    } else if (feature == SerializerFeature.WriteMapNullValue) {
-                        features |= SerializerFeature.WriteMapNullValue.mask;
-                    }
-                }
-            }
+            setJSONTypeIfPresent(beanType);
         }
         
         fieldInfo.setAccessible();
@@ -84,32 +68,7 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
         boolean writeNull = false;
         JSONField annotation = fieldInfo.getAnnotation();
         if (annotation != null) {
-            for (SerializerFeature feature : annotation.serialzeFeatures()) {
-                if ((feature.getMask() & SerializerFeature.WRITE_MAP_NULL_FEATURES) != 0) {
-                    writeNull = true;
-                    break;
-                }
-            }
-
-            format = annotation.format();
-
-            if (format.trim().length() == 0) {
-                format = null;
-            }
-
-            for (SerializerFeature feature : annotation.serialzeFeatures()) {
-                if (feature == SerializerFeature.WriteEnumUsingToString) {
-                    writeEnumUsingToString = true;
-                } else if(feature == SerializerFeature.WriteEnumUsingName){
-                    writeEnumUsingName = true;
-                } else if(feature == SerializerFeature.DisableCircularReferenceDetect){
-                    disableCircularReferenceDetect = true;
-                } else if(feature == SerializerFeature.BrowserCompatible){
-                    browserCompatible = true;
-                }
-            }
-            
-            features |= SerializerFeature.of(annotation.serialzeFeatures());
+            writeNull = setSerializationFeatures(writeNull, annotation);
         }
         
         this.writeNull = writeNull;
@@ -118,29 +77,132 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
                 || TypeUtils.isAnnotationPresentManyToMany(fieldInfo.method);
     }
 
+    private void setJSONTypeIfPresent(Class<?> beanType) {
+        JSONType jsonType = TypeUtils.getAnnotation(beanType, JSONType.class);
+        if (jsonType != null) {
+            setJSONTypeSerializerFeatures(jsonType);
+        }
+    }
+
+    private boolean setSerializationFeatures(boolean writeNull, JSONField annotation) {
+        writeNull = setWriteNullFeature(writeNull, annotation);
+
+        format = annotation.format();
+
+        if (format.trim().length() == 0) {
+            format = null;
+        }
+
+        for (SerializerFeature feature : annotation.serialzeFeatures()) {
+            setSerializerFeatureState(feature);
+        }
+        
+        features |= SerializerFeature.of(annotation.serialzeFeatures());
+        return writeNull;
+    }
+
+    private void setJSONTypeSerializerFeatures(JSONType jsonType) {
+        for (SerializerFeature feature : jsonType.serialzeFeatures()) {
+            setSerializerFeature(feature);
+        }
+    }
+
+    private void setSerializerFeatureState(SerializerFeature feature) {
+        if (feature == SerializerFeature.WriteEnumUsingToString) {
+            writeEnumUsingToString = true;
+            return;
+        }
+        if (feature == SerializerFeature.WriteEnumUsingName) {
+            writeEnumUsingName = true;
+        }
+        else if (feature == SerializerFeature.DisableCircularReferenceDetect) {
+            disableCircularReferenceDetect = true;
+        }
+        else if (feature == SerializerFeature.BrowserCompatible) {
+            browserCompatible = true;
+        }
+    }
+
+    private boolean setWriteNullFeature(boolean writeNull, JSONField annotation) {
+        writeNull = setWriteNullFromAnnotationFeatures(writeNull, annotation);
+        return writeNull;
+    }
+
+    private boolean setWriteNullFromAnnotationFeatures(boolean writeNull, JSONField annotation) {
+        writeNull = setWriteNullFromAnnotationFeatures_(writeNull, annotation);
+        return writeNull;
+    }
+
+    private boolean setWriteNullFromAnnotationFeatures_(boolean writeNull, JSONField annotation) {
+        writeNull = updateWriteNullStatus(writeNull, annotation);
+        return writeNull;
+    }
+
+    private boolean updateWriteNullStatus(boolean writeNull, JSONField annotation) {
+        for (SerializerFeature feature : annotation.serialzeFeatures()) {
+            if ((feature.getMask() & SerializerFeature.WRITE_MAP_NULL_FEATURES) != 0) {
+                writeNull = true;
+                break;
+            }
+        }
+        return writeNull;
+    }
+
+    private void setSerializerFeature(SerializerFeature feature) {
+        if (feature == SerializerFeature.WriteEnumUsingToString) {
+            writeEnumUsingToString = true;
+            return;
+        }
+        if (feature == SerializerFeature.WriteEnumUsingName) {
+            writeEnumUsingName = true;
+        }
+        else if (feature == SerializerFeature.DisableCircularReferenceDetect) {
+            disableCircularReferenceDetect = true;
+        }
+        else if (feature == SerializerFeature.BrowserCompatible) {
+            features |= SerializerFeature.BrowserCompatible.mask;
+            browserCompatible = true;
+        }
+        else if (feature == SerializerFeature.WriteMapNullValue) {
+            features |= SerializerFeature.WriteMapNullValue.mask;
+        }
+    }
+
     public void writePrefix(JSONSerializer serializer) throws IOException {
         SerializeWriter out = serializer.out;
 
         if (out.quoteFieldNames) {
-            boolean useSingleQuotes = SerializerFeature.isEnabled(out.features, fieldInfo.serialzeFeatures, SerializerFeature.UseSingleQuotes);
-            if (useSingleQuotes) {
-                if (single_quoted_fieldPrefix == null) {
-                    single_quoted_fieldPrefix = '\'' + fieldInfo.name + "\':";
-                }
-                out.write(single_quoted_fieldPrefix);
-            } else {
-                out.write(double_quoted_fieldPrefix);
-            }
+            writeFieldPrefixWithQuotes(out);
         } else {
-            if (un_quoted_fieldPrefix == null) {
-                this.un_quoted_fieldPrefix = fieldInfo.name + ":";
-            }
-            out.write(un_quoted_fieldPrefix);
+            writeUnquotedFieldPrefix(out);
         }
     }
 
+    private void writeFieldPrefixWithQuotes(SerializeWriter out) {
+        boolean useSingleQuotes = SerializerFeature.isEnabled(out.features, fieldInfo.serialzeFeatures, SerializerFeature.UseSingleQuotes);
+        if (useSingleQuotes) {
+            writeFieldPrefix(out);
+        } else {
+            out.write(double_quoted_fieldPrefix);
+        }
+    }
+
+    private void writeUnquotedFieldPrefix(SerializeWriter out) {
+        if (un_quoted_fieldPrefix == null) {
+            this.un_quoted_fieldPrefix = fieldInfo.name + ":";
+        }
+        out.write(un_quoted_fieldPrefix);
+    }
+
+    private void writeFieldPrefix(SerializeWriter out) {
+        if (single_quoted_fieldPrefix == null) {
+            single_quoted_fieldPrefix = '\'' + fieldInfo.name + "\':";
+        }
+        out.write(single_quoted_fieldPrefix);
+    }
+
     public Object getPropertyValueDirect(Object object) throws InvocationTargetException, IllegalAccessException {
-        Object fieldValue =  fieldInfo.get(object);
+        Object fieldValue = fieldInfo.get(object);
         if (persistenceXToMany && !TypeUtils.isHibernateInitialized(fieldValue)) {
             return null;
         }
@@ -148,7 +210,7 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
     }
 
     public Object getPropertyValue(Object object) throws InvocationTargetException, IllegalAccessException {
-        Object propertyValue =  fieldInfo.get(object);
+        Object propertyValue = fieldInfo.get(object);
         if (format != null && propertyValue != null) {
             if (fieldInfo.fieldClass == java.util.Date.class || fieldInfo.fieldClass == java.sql.Date.class) {
                 SimpleDateFormat dateFormat = new SimpleDateFormat(format, JSON.defaultLocale);
@@ -167,60 +229,18 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
     public void writeValue(JSONSerializer serializer, Object propertyValue) throws Exception {
         if (runtimeInfo == null) {
 
-            Class<?> runtimeFieldClass;
-            if (propertyValue == null) {
-                runtimeFieldClass = this.fieldInfo.fieldClass;
-                if (runtimeFieldClass == byte.class) {
-                    runtimeFieldClass = Byte.class;
-                } else if (runtimeFieldClass == short.class) {
-                    runtimeFieldClass = Short.class;
-                } else if (runtimeFieldClass == int.class) {
-                    runtimeFieldClass = Integer.class;
-                } else if (runtimeFieldClass == long.class) {
-                    runtimeFieldClass = Long.class;
-                } else if (runtimeFieldClass == float.class) {
-                    runtimeFieldClass = Float.class;
-                } else if (runtimeFieldClass == double.class) {
-                    runtimeFieldClass = Double.class;
-                } else if (runtimeFieldClass == boolean.class) {
-                    runtimeFieldClass = Boolean.class;
-                }
-            } else {
-                runtimeFieldClass = propertyValue.getClass();
-            }
-
-            ObjectSerializer fieldSerializer = null;
-            JSONField fieldAnnotation = fieldInfo.getAnnotation();
-
-            if (fieldAnnotation != null && fieldAnnotation.serializeUsing() != Void.class) {
-                fieldSerializer = (ObjectSerializer) fieldAnnotation.serializeUsing().newInstance();
-                serializeUsing = true;
-            } else {
-                if (format != null) {
-                    if (runtimeFieldClass == double.class || runtimeFieldClass == Double.class) {
-                        fieldSerializer = new DoubleSerializer(format);
-                    } else if (runtimeFieldClass == float.class || runtimeFieldClass == Float.class) {
-                        fieldSerializer = new FloatCodec(format);
-                    }
-                }
-
-                if (fieldSerializer == null) {
-                    fieldSerializer = serializer.getObjectWriter(runtimeFieldClass);
-                }
-            }
-
-            runtimeInfo = new RuntimeSerializerInfo(fieldSerializer, runtimeFieldClass);
+            serializePropertyValue(serializer, propertyValue);
         }
         
-        final RuntimeSerializerInfo runtimeInfo = this.runtimeInfo;
+        RuntimeSerializerInfo runtimeInfo = this.runtimeInfo;
         
-        final int fieldFeatures
+        int fieldFeatures
                 = (disableCircularReferenceDetect
                 ? (fieldInfo.serialzeFeatures | SerializerFeature.DisableCircularReferenceDetect.mask)
                 : fieldInfo.serialzeFeatures) | features;
 
         if (propertyValue == null) {
-            SerializeWriter out  = serializer.out;
+            SerializeWriter out = serializer.out;
 
             if (fieldInfo.fieldClass == Object.class
                     && out.isEnabled(SerializerFeature.WRITE_MAP_NULL_FEATURES)) {
@@ -233,13 +253,16 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
             if (Number.class.isAssignableFrom(runtimeFieldClass)) {
                 out.writeNull(features, SerializerFeature.WriteNullNumberAsZero.mask);
                 return;
-            } else if (String.class == runtimeFieldClass) {
+            }
+            if (String.class == runtimeFieldClass) {
                 out.writeNull(features, SerializerFeature.WriteNullStringAsEmpty.mask);
                 return;
-            } else if (Boolean.class == runtimeFieldClass) {
+            }
+            if (Boolean.class == runtimeFieldClass) {
                 out.writeNull(features, SerializerFeature.WriteNullBooleanAsFalse.mask);
                 return;
-            } else if (Collection.class.isAssignableFrom(runtimeFieldClass)
+            }
+            if (Collection.class.isAssignableFrom(runtimeFieldClass)
                     || runtimeFieldClass.isArray()) {
                 out.writeNull(features, SerializerFeature.WriteNullListAsEmpty.mask);
                 return;
@@ -273,14 +296,16 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
         ObjectSerializer valueSerializer;
         if (valueClass == runtimeInfo.runtimeFieldClass || serializeUsing) {
             valueSerializer = runtimeInfo.fieldSerializer;
-        } else {
+        }
+        else {
             valueSerializer = serializer.getObjectWriter(valueClass);
         }
         
         if (format != null && !(valueSerializer instanceof DoubleSerializer || valueSerializer instanceof FloatCodec)) {
             if (valueSerializer instanceof ContextObjectSerializer) {
                 ((ContextObjectSerializer) valueSerializer).write(serializer, propertyValue, this.fieldContext);    
-            } else {
+            }
+            else {
                 serializer.writeWithFormat(propertyValue, format);
             }
             return;
@@ -318,11 +343,75 @@ public class FieldSerializer implements Comparable<FieldSerializer> {
         valueSerializer.write(serializer, propertyValue, fieldInfo.name, fieldInfo.fieldType, fieldFeatures);
     }
 
+    private void serializePropertyValue(JSONSerializer serializer, Object propertyValue)
+            throws InstantiationException, IllegalAccessException {
+        Class<?> runtimeFieldClass;
+        if (propertyValue == null) {
+            runtimeFieldClass = getWrapperClass();
+        } else {
+            runtimeFieldClass = propertyValue.getClass();
+        }
+
+        ObjectSerializer fieldSerializer = null;
+        JSONField fieldAnnotation = fieldInfo.getAnnotation();
+
+        if (fieldAnnotation != null && fieldAnnotation.serializeUsing() != Void.class) {
+            fieldSerializer = (ObjectSerializer) fieldAnnotation.serializeUsing().newInstance();
+            serializeUsing = true;
+        } else {
+            fieldSerializer = getUpdatedFieldSerializer(serializer, runtimeFieldClass, fieldSerializer);
+        }
+
+        runtimeInfo = new RuntimeSerializerInfo(fieldSerializer, runtimeFieldClass);
+    }
+
+    private ObjectSerializer getUpdatedFieldSerializer(JSONSerializer serializer, Class<?> runtimeFieldClass,
+            ObjectSerializer fieldSerializer) {
+        if (format != null) {
+            fieldSerializer = getRuntimeFieldSerializer(runtimeFieldClass, fieldSerializer);
+        }
+
+        if (fieldSerializer == null) {
+            fieldSerializer = serializer.getObjectWriter(runtimeFieldClass);
+        }
+        return fieldSerializer;
+    }
+
+    private ObjectSerializer getRuntimeFieldSerializer(Class<?> runtimeFieldClass, ObjectSerializer fieldSerializer) {
+        if (runtimeFieldClass == double.class || runtimeFieldClass == Double.class) {
+            fieldSerializer = new DoubleSerializer(format);
+        } else if (runtimeFieldClass == float.class || runtimeFieldClass == Float.class) {
+            fieldSerializer = new FloatCodec(format);
+        }
+        return fieldSerializer;
+    }
+
+    private Class<?> getWrapperClass() {
+        Class<?> runtimeFieldClass;
+        runtimeFieldClass = this.fieldInfo.fieldClass;
+        if (runtimeFieldClass == byte.class) {
+            runtimeFieldClass = Byte.class;
+        } else if (runtimeFieldClass == short.class) {
+            runtimeFieldClass = Short.class;
+        } else if (runtimeFieldClass == int.class) {
+            runtimeFieldClass = Integer.class;
+        } else if (runtimeFieldClass == long.class) {
+            runtimeFieldClass = Long.class;
+        } else if (runtimeFieldClass == float.class) {
+            runtimeFieldClass = Float.class;
+        } else if (runtimeFieldClass == double.class) {
+            runtimeFieldClass = Double.class;
+        } else if (runtimeFieldClass == boolean.class) {
+            runtimeFieldClass = Boolean.class;
+        }
+        return runtimeFieldClass;
+    }
+
     static class RuntimeSerializerInfo {
         final ObjectSerializer fieldSerializer;
         final Class<?>         runtimeFieldClass;
 
-        public RuntimeSerializerInfo(ObjectSerializer fieldSerializer, Class<?> runtimeFieldClass){
+        public RuntimeSerializerInfo(ObjectSerializer fieldSerializer, Class<?> runtimeFieldClass) {
             this.fieldSerializer = fieldSerializer;
             this.runtimeFieldClass = runtimeFieldClass;
         }

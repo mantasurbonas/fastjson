@@ -81,21 +81,33 @@ public class MappingFastJsonMessageConverter extends AbstractMessageConverter {
         // encode payload to json string or byte[]
         Object obj;
         if (byte[].class == getSerializedPayloadClass()) {
-            if (payload instanceof String && JSON.isValid((String) payload)) {
-                obj = ((String) payload).getBytes(fastJsonConfig.getCharset());
-            } else {
-                obj = JSON.toJSONBytesWithFastJsonConfig(fastJsonConfig.getCharset(), payload, fastJsonConfig.getSerializeConfig(), fastJsonConfig.getSerializeFilters(),
-                        fastJsonConfig.getDateFormat(), JSON.DEFAULT_GENERATE_FEATURE, fastJsonConfig.getSerializerFeatures());
-            }
+            obj = convertPayloadToJsonBytes(payload);
         } else {
-            if (payload instanceof String && JSON.isValid((String) payload)) {
-                obj = payload;
-            } else {
-                obj = JSON.toJSONString(payload, fastJsonConfig.getSerializeConfig(), fastJsonConfig.getSerializeFilters(),
-                        fastJsonConfig.getDateFormat(), JSON.DEFAULT_GENERATE_FEATURE, fastJsonConfig.getSerializerFeatures());
-            }
+            obj = convertToValidJson(payload);
         }
 
+        return obj;
+    }
+
+    private Object convertToValidJson(Object payload) {
+        Object obj;
+        if (payload instanceof String && JSON.isValid((String) payload)) {
+            obj = payload;
+        } else {
+            obj = JSON.toJSONString(payload, fastJsonConfig.getSerializeConfig(), fastJsonConfig.getSerializeFilters(),
+                    fastJsonConfig.getDateFormat(), JSON.DEFAULT_GENERATE_FEATURE, fastJsonConfig.getSerializerFeatures());
+        }
+        return obj;
+    }
+
+    private Object convertPayloadToJsonBytes(Object payload) {
+        Object obj;
+        if (payload instanceof String && JSON.isValid((String) payload)) {
+            obj = ((String) payload).getBytes(fastJsonConfig.getCharset());
+        } else {
+            obj = JSON.toJSONBytesWithFastJsonConfig(fastJsonConfig.getCharset(), payload, fastJsonConfig.getSerializeConfig(), fastJsonConfig.getSerializeFilters(),
+                    fastJsonConfig.getDateFormat(), JSON.DEFAULT_GENERATE_FEATURE, fastJsonConfig.getSerializerFeatures());
+        }
         return obj;
     }
 }

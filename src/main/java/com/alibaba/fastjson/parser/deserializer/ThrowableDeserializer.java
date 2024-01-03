@@ -17,7 +17,7 @@ import com.alibaba.fastjson.util.TypeUtils;
 
 public class ThrowableDeserializer extends JavaBeanDeserializer {
 
-    public ThrowableDeserializer(ParserConfig mapping, Class<?> clazz){
+    public ThrowableDeserializer(ParserConfig mapping, Class<?> clazz) {
         super(mapping, clazz, clazz);
     }
 
@@ -42,10 +42,7 @@ public class ThrowableDeserializer extends JavaBeanDeserializer {
         Class<?> exClass = null;
         
         if (type != null && type instanceof Class) {
-        	Class<?> clazz = (Class<?>) type;
-        	if (Throwable.class.isAssignableFrom(clazz)) {
-        		exClass = clazz;
-        	}
+            exClass = assignExceptionClass(type, exClass);
         }
         
         String message = null;
@@ -72,31 +69,15 @@ public class ThrowableDeserializer extends JavaBeanDeserializer {
             lexer.nextTokenWithColon(JSONToken.LITERAL_STRING);
 
             if (JSON.DEFAULT_TYPE_KEY.equals(key)) {
-                if (lexer.token() == JSONToken.LITERAL_STRING) {
-                    String exClassName = lexer.stringVal();
-                    exClass = parser.getConfig().checkAutoType(exClassName, Throwable.class, lexer.getFeatures());
-                } else {
-                    throw new JSONException("syntax error");
-                }
-                lexer.nextToken(JSONToken.COMMA);
+                exClass = parseExceptionClass(parser, lexer, exClass);
             } else if ("message".equals(key)) {
-                if (lexer.token() == JSONToken.NULL) {
-                    message = null;
-                } else if (lexer.token() == JSONToken.LITERAL_STRING) {
-                    message = lexer.stringVal();
-                } else {
-                    throw new JSONException("syntax error");
-                }
-                lexer.nextToken();
+                message = parseMessage(lexer, message);
             } else if ("cause".equals(key)) {
                 cause = deserialze(parser, null, "cause");
             } else if ("stackTrace".equals(key)) {
                 stackTrace = parser.parseObject(StackTraceElement[].class);
             } else {
-                if (otherValues == null) {
-                    otherValues = new HashMap<String, Object>();
-                }
-                otherValues.put(key, parser.parse());
+                otherValues = parseAndAddToMap(parser, otherValues, key);
             }
 
             if (lexer.token() == JSONToken.RBRACE) {
@@ -109,18 +90,7 @@ public class ThrowableDeserializer extends JavaBeanDeserializer {
         if (exClass == null) {
             ex = new Exception(message, cause);
         } else {
-            if (!Throwable.class.isAssignableFrom(exClass)) {
-                throw new JSONException("type not match, not Throwable. " + exClass.getName());
-            }
-
-            try {
-                ex = createException(message, cause, exClass);
-                if (ex == null) {
-                    ex = new Exception(message, cause);
-                }
-            } catch (Exception e) {
-                throw new JSONException("create instance error", e);
-            }
+            ex = createThrowableInstance(cause, exClass, message, ex);
         }
 
         if (stackTrace != null) {
@@ -128,37 +98,129 @@ public class ThrowableDeserializer extends JavaBeanDeserializer {
         }
 
         if (otherValues != null) {
-            JavaBeanDeserializer exBeanDeser = null;
-
-            if (exClass != null) {
-                if (exClass == clazz) {
-                    exBeanDeser = this;
-                } else {
-                    ObjectDeserializer exDeser = parser.getConfig().getDeserializer(exClass);
-                    if (exDeser instanceof JavaBeanDeserializer) {
-                        exBeanDeser = (JavaBeanDeserializer) exDeser;
-                    }
-                }
-            }
-
-            if (exBeanDeser != null) {
-                for (Map.Entry<String, Object> entry : otherValues.entrySet()) {
-                    String key = entry.getKey();
-                    Object value = entry.getValue();
-
-                    FieldDeserializer fieldDeserializer = exBeanDeser.getFieldDeserializer(key);
-                    if (fieldDeserializer != null) {
-                        FieldInfo fieldInfo = fieldDeserializer.fieldInfo;
-                        if (!fieldInfo.fieldClass.isInstance(value)) {
-                            value = TypeUtils.cast(value, fieldInfo.fieldType, parser.getConfig());
-                        }
-                        fieldDeserializer.setValue(ex, value);
-                    }
-                }
-            }
+            deserializeExceptionFields(parser, exClass, otherValues, ex);
         }
 
         return (T) ex;
+    }
+
+    private <T> void deserializeExceptionFields(DefaultJSONParser parser, Class<?> exClass, Map<String, Object> otherValues,
+            Throwable ex) {
+        JavaBeanDeserializer exBeanDeser = null;
+
+        if (exClass != null) {
+            exBeanDeser = getJavaBeanDeserializer(parser, exClass, exBeanDeser);
+        }
+
+        if (exBeanDeser != null) {
+            setExceptionFieldValues(parser, otherValues, ex, exBeanDeser);
+        }
+    }
+
+    private <T> void setExceptionFieldValues(DefaultJSONParser parser, Map<String, Object> otherValues, Throwable ex,
+            JavaBeanDeserializer exBeanDeser) {
+        for (Map.Entry<String, Object> entry : otherValues.entrySet()) {
+            setExceptionFieldValue(parser, ex, exBeanDeser, entry);
+        }
+    }
+
+    private <T> void setExceptionFieldValue(DefaultJSONParser parser, Throwable ex, JavaBeanDeserializer exBeanDeser,
+            Map.Entry<String, Object> entry) {
+        String key = entry.getKey();
+        Object value = entry.getValue();
+
+        FieldDeserializer fieldDeserializer = exBeanDeser.getFieldDeserializer(key);
+        if (fieldDeserializer != null) {
+            setFieldValue(parser, ex, value, fieldDeserializer);
+        }
+    }
+
+    private <T> JavaBeanDeserializer getJavaBeanDeserializer(DefaultJSONParser parser, Class<?> exClass,
+            JavaBeanDeserializer exBeanDeser) {
+        if (exClass == clazz) {
+            exBeanDeser = this;
+        } else {
+            exBeanDeser = getDeserializerInstance(parser, exClass, exBeanDeser);
+        }
+        return exBeanDeser;
+    }
+
+    private <T> Throwable createThrowableInstance(Throwable cause, Class<?> exClass, String message, Throwable ex) {
+        if (!Throwable.class.isAssignableFrom(exClass)) {
+            throw new JSONException("type not match, not Throwable. " + exClass.getName());
+        }
+
+        try {
+            ex = createOrAssignException(cause, exClass, message);
+        } catch (Exception e) {
+            throw new JSONException("create instance error", e);
+        }
+        return ex;
+    }
+
+    private <T> void setFieldValue(DefaultJSONParser parser, Throwable ex, Object value,
+            FieldDeserializer fieldDeserializer) {
+        FieldInfo fieldInfo = fieldDeserializer.fieldInfo;
+        if (!fieldInfo.fieldClass.isInstance(value)) {
+            value = TypeUtils.cast(value, fieldInfo.fieldType, parser.getConfig());
+        }
+        fieldDeserializer.setValue(ex, value);
+    }
+
+    private <T> JavaBeanDeserializer getDeserializerInstance(DefaultJSONParser parser, Class<?> exClass,
+            JavaBeanDeserializer exBeanDeser) {
+        ObjectDeserializer exDeser = parser.getConfig().getDeserializer(exClass);
+        if (exDeser instanceof JavaBeanDeserializer) {
+            exBeanDeser = (JavaBeanDeserializer) exDeser;
+        }
+        return exBeanDeser;
+    }
+
+    private <T> Throwable createOrAssignException(Throwable cause, Class<?> exClass, String message) throws Exception {
+        Throwable ex;
+        ex = createException(message, cause, exClass);
+        if (ex == null) {
+            ex = new Exception(message, cause);
+        }
+        return ex;
+    }
+
+    private <T> Map<String, Object> parseAndAddToMap(DefaultJSONParser parser, Map<String, Object> otherValues, String key) {
+        if (otherValues == null) {
+            otherValues = new HashMap<String, Object>();
+        }
+        otherValues.put(key, parser.parse());
+        return otherValues;
+    }
+
+    private <T> String parseMessage(JSONLexer lexer, String message) {
+        if (lexer.token() == JSONToken.NULL) {
+            message = null;
+        }
+        else{
+            if (lexer.token() != JSONToken.LITERAL_STRING)
+                throw new JSONException("syntax error");
+            message = lexer.stringVal();
+        }
+        lexer.nextToken();
+        return message;
+    }
+
+    private <T> Class<?> parseExceptionClass(DefaultJSONParser parser, JSONLexer lexer, Class<?> exClass) {
+        if (lexer.token() != JSONToken.LITERAL_STRING)
+            throw new JSONException("syntax error");
+        String exClassName = lexer.stringVal();
+        exClass = parser.getConfig().checkAutoType(exClassName, Throwable.class, lexer.getFeatures());
+        lexer.nextToken(JSONToken.COMMA);
+        return exClass;
+    }
+
+    private <T> Class<?> assignExceptionClass(Type type, Class<?> exClass) {
+        Class<?> clazz = (Class<?>) type;
+        if (Throwable.class.isAssignableFrom(clazz)) {
+            exClass = clazz;
+        }
+        return exClass;
     }
 
     private Throwable createException(String message, Throwable cause, Class<?> exClass) throws Exception {
@@ -166,7 +228,7 @@ public class ThrowableDeserializer extends JavaBeanDeserializer {
         Constructor<?> messageConstructor = null;
         Constructor<?> causeConstructor = null;
         for (Constructor<?> constructor : exClass.getConstructors()) {
-        	Class<?>[] types = constructor.getParameterTypes();
+            Class<?>[] types = constructor.getParameterTypes();
             if (types.length == 0) {
                 defaultConstructor = constructor;
                 continue;

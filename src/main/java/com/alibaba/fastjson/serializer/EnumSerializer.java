@@ -46,15 +46,21 @@ public class EnumSerializer implements ObjectSerializer {
 
         Object fieldValue = null;
         try {
-            if (member instanceof Field) {
-                fieldValue = ((Field) member).get(object);
-            } else {
-                fieldValue = ((Method) member).invoke(object);
-            }
+            fieldValue = getFieldValue(object);
         } catch (Exception e) {
             throw new JSONException("getEnumValue error", e);
         }
 
         serializer.write(fieldValue);
+    }
+
+    private Object getFieldValue(Object object) throws IllegalAccessException, InvocationTargetException {
+        Object fieldValue;
+        if (member instanceof Field) {
+            fieldValue = ((Field) member).get(object);
+        } else {
+            fieldValue = ((Method) member).invoke(object);
+        }
+        return fieldValue;
     }
 }

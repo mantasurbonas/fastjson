@@ -16,78 +16,17 @@ public class NumberDeserializer implements ObjectDeserializer {
 
     @SuppressWarnings("unchecked")
     public <T> T deserialze(DefaultJSONParser parser, Type clazz, Object fieldName) {
-        final JSONLexer lexer = parser.lexer;
+        JSONLexer lexer = parser.lexer;
         if (lexer.token() == JSONToken.LITERAL_INT) {
-            if (clazz == double.class || clazz  == Double.class) {
-                String val = lexer.numberString();
-                lexer.nextToken(JSONToken.COMMA);
-                return (T) Double.valueOf(Double.parseDouble(val));
-            }
-            
-            long val = lexer.longValue();
-            lexer.nextToken(JSONToken.COMMA);
-
-            if (clazz == short.class || clazz == Short.class) {
-                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE) {
-                    throw new JSONException("short overflow : " + val);
-                }
-                return (T) Short.valueOf((short) val);
-            }
-
-            if (clazz == byte.class || clazz == Byte.class) {
-                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE) {
-                    throw new JSONException("short overflow : " + val);
-                }
-
-                return (T) Byte.valueOf((byte) val);
-            }
-
-            if (val >= Integer.MIN_VALUE && val <= Integer.MAX_VALUE) {
-                return (T) Integer.valueOf((int) val);
-            }
-            return (T) Long.valueOf(val);
+            return parseNumberValue(clazz, lexer);
         }
 
         if (lexer.token() == JSONToken.LITERAL_FLOAT) {
-            if (clazz == double.class || clazz == Double.class) {
-                String val = lexer.numberString();
-                lexer.nextToken(JSONToken.COMMA);
-                return (T) Double.valueOf(Double.parseDouble(val));
-            }
-
-            if (clazz == short.class || clazz == Short.class) {
-                BigDecimal val = lexer.decimalValue();
-                lexer.nextToken(JSONToken.COMMA);
-                short shortValue = TypeUtils.shortValue(val);
-                return (T) Short.valueOf(shortValue);
-            }
-
-            if (clazz == byte.class || clazz == Byte.class) {
-                BigDecimal val = lexer.decimalValue();
-                lexer.nextToken(JSONToken.COMMA);
-                byte byteValue = TypeUtils.byteValue(val);
-                return (T) Byte.valueOf(byteValue);
-            }
-
-            BigDecimal val = lexer.decimalValue();
-            lexer.nextToken(JSONToken.COMMA);
-
-            if (lexer.isEnabled(Feature.UseBigDecimal)) {
-                return (T) val;
-            } else {
-                return (T) Double.valueOf(val.doubleValue());
-            }
+            return parseValueType(clazz, lexer);
         }
 
         if (lexer.token() == JSONToken.IDENTIFIER && "NaN".equals(lexer.stringVal())) {
-            lexer.nextToken();
-            Object nan = null;
-            if (clazz == Double.class) {
-                nan = Double.NaN;
-            } else if (clazz == Float.class) {
-                nan = Float.NaN;
-            }
-            return (T) nan;
+            return parseNaNValue(clazz, lexer);
         }
 
         Object value = parser.parse();
@@ -121,6 +60,93 @@ public class NumberDeserializer implements ObjectDeserializer {
         }
 
         return (T) TypeUtils.castToBigDecimal(value);
+    }
+
+    private <T> T parseValueType(Type clazz, JSONLexer lexer) {
+        if (clazz == double.class || clazz == Double.class) {
+            String val = lexer.numberString();
+            lexer.nextToken(JSONToken.COMMA);
+            return (T) Double.valueOf(Double.parseDouble(val));
+        }
+
+        if (clazz == short.class || clazz == Short.class) {
+            return parseShortValue(lexer);
+        }
+
+        if (clazz == byte.class || clazz == Byte.class) {
+            return parseByteValue(lexer);
+        }
+
+        BigDecimal val = lexer.decimalValue();
+        lexer.nextToken(JSONToken.COMMA);
+
+        if (lexer.isEnabled(Feature.UseBigDecimal))
+            return (T) val;
+        return (T) Double.valueOf(val.doubleValue());
+    }
+
+    private <T> T parseNumberValue(Type clazz, JSONLexer lexer) {
+        if (clazz == double.class || clazz == Double.class) {
+            String val = lexer.numberString();
+            lexer.nextToken(JSONToken.COMMA);
+            return (T) Double.valueOf(Double.parseDouble(val));
+        }
+        
+        long val = lexer.longValue();
+        lexer.nextToken(JSONToken.COMMA);
+
+        if (clazz == short.class || clazz == Short.class) {
+            return convertToShort(val);
+        }
+
+        if (clazz == byte.class || clazz == Byte.class) {
+            return convertToByte(val);
+        }
+
+        if (val >= Integer.MIN_VALUE && val <= Integer.MAX_VALUE) {
+            return (T) Integer.valueOf((int) val);
+        }
+        return (T) Long.valueOf(val);
+    }
+
+    private <T> T parseNaNValue(Type clazz, JSONLexer lexer) {
+        lexer.nextToken();
+        Object nan = null;
+        if (clazz == Double.class) {
+            nan = Double.NaN;
+        } else if (clazz == Float.class) {
+            nan = Float.NaN;
+        }
+        return (T) nan;
+    }
+
+    private <T> T parseByteValue(JSONLexer lexer) {
+        BigDecimal val = lexer.decimalValue();
+        lexer.nextToken(JSONToken.COMMA);
+        byte byteValue = TypeUtils.byteValue(val);
+        return (T) Byte.valueOf(byteValue);
+    }
+
+    private <T> T parseShortValue(JSONLexer lexer) {
+        BigDecimal val = lexer.decimalValue();
+        lexer.nextToken(JSONToken.COMMA);
+        short shortValue = TypeUtils.shortValue(val);
+        return (T) Short.valueOf(shortValue);
+    }
+
+    private <T> T convertToByte(long val) {
+        if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE) {
+            throw new JSONException("short overflow : " + val);
+        }
+
+        return (T) Byte.valueOf((byte) val);
+    }
+
+    private <T> T convertToShort(long val) {
+        if (val > Short.MAX_VALUE || val < Short.MIN_VALUE) {
+            throw new JSONException("short overflow : " + val);
+        }
+        return (T) Short.valueOf((short) val);
     }
 
     public int getFastMatchToken() {

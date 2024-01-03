@@ -16,7 +16,7 @@ public class AdderSerializer implements ObjectSerializer {
         if (object instanceof LongAdder) {
             out.writeFieldValue('{', "value", ((LongAdder) object).longValue());
             out.write('}');
-        } else  if (object instanceof DoubleAdder) {
+        } else if (object instanceof DoubleAdder) {
             out.writeFieldValue('{', "value", ((DoubleAdder) object).doubleValue());
             out.write('}');
         }

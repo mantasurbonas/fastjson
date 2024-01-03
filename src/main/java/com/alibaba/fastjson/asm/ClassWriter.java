@@ -143,11 +143,11 @@ public class ClassWriter {
     // Constructor
     // ------------------------------------------------------------------------
 
-    public ClassWriter(){
+    public ClassWriter() {
         this(0);
     }
 
-    private ClassWriter(final int flags){
+    private ClassWriter(int flags) {
         index = 1;
         pool = new ByteVector();
         items = new Item[256];
@@ -161,18 +161,22 @@ public class ClassWriter {
     // Implementation of the ClassVisitor interface
     // ------------------------------------------------------------------------
 
-    public void visit(final int version, final int access, final String name, final String superName, final String[] interfaces) {
+    public void visit(int version, int access, String name, String superName, String[] interfaces) {
         this.version = version;
         this.access = access;
         this.name = newClassItem(name).index;
         thisName = name;
         this.superName = superName == null ? 0 : newClassItem(superName).index;
         if (interfaces != null && interfaces.length > 0) {
-            interfaceCount = interfaces.length;
-            this.interfaces = new int[interfaceCount];
-            for (int i = 0; i < interfaceCount; ++i) {
-                this.interfaces[i] = newClassItem(interfaces[i]).index;
-            }
+            setInterfaceIndices(interfaces);
+        }
+    }
+
+    private void setInterfaceIndices(String[] interfaces) {
+        interfaceCount = interfaces.length;
+        this.interfaces = new int[interfaceCount];
+        for (int i = 0;i < interfaceCount;++i) {
+            this.interfaces[i] = newClassItem(interfaces[i]).index;
         }
     }
 
@@ -212,7 +216,7 @@ public class ClassWriter {
         int mask = 393216; // Opcodes.ACC_DEPRECATED | ClassWriter.ACC_SYNTHETIC_ATTRIBUTE | ((access & ClassWriter.ACC_SYNTHETIC_ATTRIBUTE) / (ClassWriter.ACC_SYNTHETIC_ATTRIBUTE / Opcodes.ACC_SYNTHETIC));
         out.putShort(access & ~mask).putShort(name).putShort(superName);
         out.putShort(interfaceCount);
-        for (int i = 0; i < interfaceCount; ++i) {
+        for (int i = 0;i < interfaceCount;++i) {
             out.putShort(interfaces[i]);
         }
         out.putShort(nbFields);
@@ -243,29 +247,33 @@ public class ClassWriter {
      * a {@link Float}, a {@link Long}, a {@link Double}, a {@link String} or a {@link Type}.
      * @return a new or already existing constant item with the given value.
      */
-    Item newConstItem(final Object cst) {
+    Item newConstItem(Object cst) {
         if (cst instanceof Integer) {
-            int val = ((Integer) cst).intValue();
-            // return newInteger(val);
-            key.set(val);
-            Item result = get(key);
-            if (result == null) {
-                pool.putByte(3 /* INT */ ).putInt(val);
-                result = new Item(index++, key);
-                put(result);
-            }
-            return result;
-        } else if (cst instanceof String) {
+            return newIntegerItem(cst);
+        }
+        if (cst instanceof String)
             return newString((String) cst);
-        } else if (cst instanceof Type) {
+        if (cst instanceof Type) {
             Type t = (Type) cst;
             return newClassItem(t.sort == 10 /*Type.OBJECT*/ ? t.getInternalName() : t.getDescriptor());
-        } else {
-            throw new IllegalArgumentException("value " + cst);
         }
+        throw new IllegalArgumentException("value " + cst);
     }
 
-    public int newUTF8(final String value) {
+    private Item newIntegerItem(Object cst) {
+        int val = ((Integer) cst).intValue();
+        // return newInteger(val);
+		key.set(val);
+        Item result = get(key);
+        if (result == null) {
+            pool.putByte(3 /* INT */).putInt(val);
+            result = new Item(index++, key);
+            put(result);
+        }
+        return result;
+    }
+
+    public int newUTF8(String value) {
         key.set(1 /* UTF8 */, value, null, null);
         Item result = get(key);
         if (result == null) {
@@ -276,7 +284,7 @@ public class ClassWriter {
         return result.index;
     }
 
-    public Item newClassItem(final String value) {
+    public Item newClassItem(String value) {
         key2.set(7 /* CLASS */, value, null, null);
         Item result = get(key2);
         if (result == null) {
@@ -296,16 +304,23 @@ public class ClassWriter {
      * @param desc the field's descriptor.
      * @return a new or already existing field reference item.
      */
-    Item newFieldItem(final String owner, final String name, final String desc) {
+    Item newFieldItem(String owner, String name, String desc) {
         key3.set(9 /* FIELD */, owner, name, desc);
         Item result = get(key3);
         if (result == null) {
             // put122(9 /* FIELD */, newClassItem(owner).index, newNameTypeItem(name, desc).index);
-            int s1 = newClassItem(owner).index, s2 = newNameTypeItem(name, desc).index;
-            pool.put12(9 /* FIELD */, s1).putShort(s2);
-            result = new Item(index++, key3);
-            put(result);
+            result = newItem(owner, name, desc);
         }
+        return result;
+    }
+
+    private Item newItem(String owner, String name, String desc) {
+        Item result;
+        int s1 = newClassItem(owner).index;
+        int s2 = newNameTypeItem(name, desc).index;
+        pool.put12(9 /* FIELD */, s1).putShort(s2);
+        result = new Item(index++, key3);
+        put(result);
         return result;
     }
 
@@ -319,21 +334,28 @@ public class ClassWriter {
      * @param itf <tt>true</tt> if <tt>owner</tt> is an interface.
      * @return a new or already existing method reference item.
      */
-    Item newMethodItem(final String owner, final String name, final String desc, final boolean itf) {
+    Item newMethodItem(String owner, String name, String desc, boolean itf) {
         int type = itf ? 11 /* IMETH */ : 10 /* METH */;
         key3.set(type, owner, name, desc);
         Item result = get(key3);
         if (result == null) {
             // put122(type, newClassItem(owner).index, newNameTypeItem(name, desc).index);
-            int s1 = newClassItem(owner).index, s2 = newNameTypeItem(name, desc).index;
-            pool.put12(type, s1).putShort(s2);
-            result = new Item(index++, key3);
-            put(result);
+            result = newItemWithOwnerNameDescType(owner, name, desc, type);
         }
         return result;
     }
 
-    private Item newString(final String value) {
+    private Item newItemWithOwnerNameDescType(String owner, String name, String desc, int type) {
+        Item result;
+        int s1 = newClassItem(owner).index;
+        int s2 = newNameTypeItem(name, desc).index;
+        pool.put12(type, s1).putShort(s2);
+        result = new Item(index++, key3);
+        put(result);
+        return result;
+    }
+
+    private Item newString(String value) {
         key2.set(8 /* STR */, value, null, null);
         Item result = get(key2);
         if (result == null) {
@@ -344,21 +366,28 @@ public class ClassWriter {
         return result;
     }
 
-    public Item newNameTypeItem(final String name, final String desc) {
+    public Item newNameTypeItem(String name, String desc) {
         key2.set(12 /* NAME_TYPE */, name, desc, null);
         Item result = get(key2);
         if (result == null) {
             //put122(12 /* NAME_TYPE */, newUTF8(name), newUTF8(desc));
-            int s1 = newUTF8(name), s2 = newUTF8(desc);
-            pool.put12(12 /* NAME_TYPE */, s1).putShort(s2);
-            result = new Item(index++, key2);
-            put(result);
+            result = newItemWithUTF8(name, desc);
         }
         return result;
     }
 
+    private Item newItemWithUTF8(String name, String desc) {
+        Item result;
+        int s1 = newUTF8(name);
+        int s2 = newUTF8(desc);
+        pool.put12(12 /* NAME_TYPE */, s1).putShort(s2);
+        result = new Item(index++, key2);
+        put(result);
+        return result;
+    }
 
-    private Item get(final Item key) {
+
+    private Item get(Item key) {
         Item i = items[key.hashCode % items.length];
         while (i != null && (i.type != key.type || !key.isEqualTo(i))) {
             i = i.next;
@@ -366,26 +395,39 @@ public class ClassWriter {
         return i;
     }
 
-    private void put(final Item i) {
+    private void put(Item i) {
         if (index > threshold) {
-            int ll = items.length;
-            int nl = ll * 2 + 1;
-            Item[] newItems = new Item[nl];
-            for (int l = ll - 1; l >= 0; --l) {
-                Item j = items[l];
-                while (j != null) {
-                    int index = j.hashCode % newItems.length;
-                    Item k = j.next;
-                    j.next = newItems[index];
-                    newItems[index] = j;
-                    j = k;
-                }
-            }
-            items = newItems;
-            threshold = (int) (nl * 0.75);
+            expandItemArray();
         }
         int index = i.hashCode % items.length;
         i.next = items[index];
         items[index] = i;
+    }
+
+    private void expandItemArray() {
+        int ll = items.length;
+        int nl = ll * 2 + 1;
+        Item[] newItems = new Item[nl];
+        for (int l = ll - 1;l >= 0;--l) {
+            insertItemsUntilNull(newItems, l);
+        }
+        items = newItems;
+        threshold = (int) (nl * 0.75);
+    }
+
+    private void insertItemsUntilNull(Item[] newItems, int l) {
+        Item j = items[l];
+        while (j != null) {
+            j = insertItemInArray(newItems, j);
+        }
+    }
+
+    private Item insertItemInArray(Item[] newItems, Item j) {
+        int index = j.hashCode % newItems.length;
+        Item k = j.next;
+        j.next = newItems[index];
+        newItems[index] = j;
+        j = k;
+        return j;
     }
 }
