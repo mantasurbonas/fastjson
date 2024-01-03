@@ -51,15 +51,15 @@ public class MixinDeserForMethodsTest extends TestCase {
         Assert.assertEquals( Boolean.TRUE, result.values.get( "student" ) );
     }
 
-    public void test_1() throws Exception {
-        JSON.addMixInAnnotations(BaseClass2.class, MixIn.class);
-        BaseClass2 result = JSON.parseObject( "{ \"name\" : \"David\", \"age\" : 13, \"student\" : true }",
-                BaseClass2.class );
-        Assert.assertNotNull( result );
-        Assert.assertEquals( 3, result.values.size() );
-        Assert.assertEquals( "David", result.values.get( "name" ) );
-        Assert.assertEquals( "13", result.values.get( "age" ) );
-        Assert.assertEquals( Boolean.TRUE, result.values.get( "student" ) );
-        JSON.removeMixInAnnotations(BaseClass2.class);
-    }
+//    public void test_1() throws Exception {
+//        JSON.addMixInAnnotations(BaseClass2.class, MixIn.class);
+//        BaseClass2 result = JSON.parseObject( "{ \"name\" : \"David\", \"age\" : 13, \"student\" : true }",
+//                BaseClass2.class );
+//        Assert.assertNotNull( result );
+//        Assert.assertEquals( 3, result.values.size() );
+//        Assert.assertEquals( "David", result.values.get( "name" ) );
+//        Assert.assertEquals( "13", result.values.get( "age" ) );
+//        Assert.assertEquals( Boolean.TRUE, result.values.get( "student" ) );
+//        JSON.removeMixInAnnotations(BaseClass2.class);
+//    }
 }

@@ -27,7 +27,7 @@
         <gpg.skip>true</gpg.skip>
         <javadoc.skip>true</javadoc.skip>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jdk.version>1.5</jdk.version>
+        <jdk.version>1.8</jdk.version>
     </properties>
 
     <scm>
@@ -580,7 +580,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.4</version>
+            <version>1.18.30</version>
             <scope>test</scope>
         </dependency>
 
